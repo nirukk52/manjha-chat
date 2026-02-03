@@ -628,7 +628,9 @@ export async function getPortfolio(
         session.accessToken
       );
       portfolioEquity = Number.parseFloat(portfolio.equity);
-      portfolioPreviousClose = Number.parseFloat(portfolio.equity_previous_close);
+      portfolioPreviousClose = Number.parseFloat(
+        portfolio.equity_previous_close
+      );
     } catch (error) {
       console.error("Failed to get portfolio equity:", error);
     }
@@ -639,13 +641,15 @@ export async function getPortfolio(
   let nextUrl: string | null = "/positions/?nonzero=true";
 
   while (nextUrl) {
-    const positions = await apiRequest<
-      RobinhoodPaginatedResponse<RobinhoodPosition>
-    >(nextUrl.replace(ROBINHOOD_API_BASE, ""), {}, session.accessToken);
+    const positions: RobinhoodPaginatedResponse<RobinhoodPosition> =
+      await apiRequest<RobinhoodPaginatedResponse<RobinhoodPosition>>(
+        nextUrl.replace(ROBINHOOD_API_BASE, ""),
+        {},
+        session.accessToken
+      );
     allPositions = [...allPositions, ...positions.results];
     nextUrl = positions.next;
   }
-
 
   let totalStockValue = 0;
   let totalStockPreviousClose = 0;
@@ -1169,9 +1173,12 @@ export async function getTodayOptionsOrders(
   let nextUrl: string | null = "/options/orders/";
 
   while (nextUrl) {
-    const orders = await apiRequest<
-      RobinhoodPaginatedResponse<RobinhoodOptionOrder>
-    >(nextUrl.replace(ROBINHOOD_API_BASE, ""), {}, session.accessToken);
+    const orders: RobinhoodPaginatedResponse<RobinhoodOptionOrder> =
+      await apiRequest<RobinhoodPaginatedResponse<RobinhoodOptionOrder>>(
+        nextUrl.replace(ROBINHOOD_API_BASE, ""),
+        {},
+        session.accessToken
+      );
     allOrders = [...allOrders, ...orders.results];
     nextUrl = orders.next;
 
@@ -1252,7 +1259,8 @@ export async function getTodayOptionsOrders(
 
   // Sort by execution time, most recent first
   formattedTrades.sort(
-    (a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
+    (a, b) =>
+      new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
   );
 
   return formattedTrades;
