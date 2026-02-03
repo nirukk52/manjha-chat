@@ -16,6 +16,13 @@ import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
+import {
+  robinhoodConnect,
+  robinhoodGetAccount,
+  robinhoodGetPortfolio,
+  robinhoodGetPositions,
+  robinhoodGetQuote,
+} from "@/lib/ai/tools/robinhood";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
@@ -151,6 +158,11 @@ export async function POST(request: Request) {
                 "createDocument",
                 "updateDocument",
                 "requestSuggestions",
+                "robinhoodConnect",
+                "robinhoodGetAccount",
+                "robinhoodGetPortfolio",
+                "robinhoodGetPositions",
+                "robinhoodGetQuote",
               ],
           providerOptions: isReasoningModel
             ? {
@@ -164,6 +176,11 @@ export async function POST(request: Request) {
             createDocument: createDocument({ session, dataStream }),
             updateDocument: updateDocument({ session, dataStream }),
             requestSuggestions: requestSuggestions({ session, dataStream }),
+            robinhoodConnect: robinhoodConnect({ session }),
+            robinhoodGetAccount: robinhoodGetAccount({ session }),
+            robinhoodGetPortfolio: robinhoodGetPortfolio({ session }),
+            robinhoodGetPositions: robinhoodGetPositions({ session }),
+            robinhoodGetQuote: robinhoodGetQuote({ session }),
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,

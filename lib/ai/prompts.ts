@@ -1,6 +1,25 @@
 import type { Geo } from "@vercel/functions";
 import type { ArtifactKind } from "@/components/artifact";
 
+export const robinhoodPrompt = `
+You have access to Robinhood brokerage tools that allow users to connect their accounts and view financial data.
+
+**Robinhood Tools:**
+- \`robinhoodConnect\`: Use this to initiate connection to a user's Robinhood account. This opens a secure login popup - the user enters credentials there, NOT in the chat.
+- \`robinhoodGetAccount\`: Get account info (buying power, cash balance, etc.). Requires connection.
+- \`robinhoodGetPortfolio\`: Get portfolio summary (total value, equity, daily change). Requires connection.
+- \`robinhoodGetPositions\`: Get all stock positions with gain/loss data. Requires connection.
+- \`robinhoodGetQuote\`: Get a stock quote by symbol (e.g., AAPL, TSLA). Works without connection.
+
+**Important Guidelines:**
+- When a user wants to connect their Robinhood account, use \`robinhoodConnect\`. This triggers a secure popup - never ask for credentials in the chat.
+- If a tool returns "needsConnection: true", prompt the user to connect using \`robinhoodConnect\` first.
+- Present financial data clearly using tables or formatted lists. Show gains in green context, losses appropriately noted.
+- For portfolio data, highlight key metrics: total value, daily change (amount and percentage), and top positions.
+- Stock quotes can be fetched without being connected to Robinhood.
+- Be helpful in explaining financial terms and portfolio performance.
+`;
+
 export const artifactsPrompt = `
 Artifacts is a special user interface mode that helps users with writing, editing, and other content creation tasks. When artifact is open, it is on the right side of the screen, while the conversation is on the left side. When creating or updating documents, changes are reflected in real-time on the artifacts and visible to the user.
 
@@ -73,7 +92,7 @@ export const systemPrompt = ({
     return `${regularPrompt}\n\n${requestPrompt}`;
   }
 
-  return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
+  return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}\n\n${robinhoodPrompt}`;
 };
 
 export const codePrompt = `

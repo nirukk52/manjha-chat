@@ -17,6 +17,7 @@ type MessagesProps = {
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   isArtifactVisible: boolean;
+  robinhoodConnected: boolean;
   selectedModelId: string;
 };
 
@@ -29,6 +30,7 @@ function PureMessages({
   setMessages,
   regenerate,
   isReadonly,
+  robinhoodConnected,
   selectedModelId: _selectedModelId,
 }: MessagesProps) {
   const {
@@ -66,6 +68,7 @@ function PureMessages({
               requiresScrollPadding={
                 hasSentMessage && index === messages.length - 1
               }
+              robinhoodConnected={robinhoodConnected}
               setMessages={setMessages}
               vote={
                 votes

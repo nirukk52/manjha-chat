@@ -65,6 +65,21 @@ const getStatusBadge = (status: ToolUIPart["state"]) => {
   );
 };
 
+const getToolLabel = (type: string): string => {
+  const labels: Record<string, string> = {
+    "tool-getWeather": "Get Weather",
+    "tool-createDocument": "Create Document",
+    "tool-updateDocument": "Update Document",
+    "tool-requestSuggestions": "Request Suggestions",
+    "tool-robinhoodConnect": "Connect Robinhood",
+    "tool-robinhoodGetAccount": "Get Robinhood Account",
+    "tool-robinhoodGetPortfolio": "Get Portfolio",
+    "tool-robinhoodGetPositions": "Get Positions",
+    "tool-robinhoodGetQuote": "Get Stock Quote",
+  };
+  return labels[type] || type;
+};
+
 export const ToolHeader = ({
   className,
   type,
@@ -80,7 +95,7 @@ export const ToolHeader = ({
   >
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <WrenchIcon className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate font-medium text-sm">{type}</span>
+      <span className="truncate font-medium text-sm">{getToolLabel(type)}</span>
     </div>
     <div className="flex shrink-0 items-center gap-2">
       {getStatusBadge(state)}

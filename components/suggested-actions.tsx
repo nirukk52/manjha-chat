@@ -2,7 +2,7 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import type { ChatMessage } from "@/lib/types";
 import { Suggestion } from "./elements/suggestion";
 import type { VisibilityType } from "./visibility-selector";
@@ -13,12 +13,94 @@ type SuggestedActionsProps = {
   selectedVisibilityType: VisibilityType;
 };
 
+interface RobinhoodStatus {
+  connected: boolean;
+  portfolio?: {
+    totalValue: number;
+    dayChange: number;
+    dayChangePercent: number;
+  };
+}
+
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
+  const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodStatus>({
+    connected: false,
+  });
+
+  useEffect(() => {
+    async function checkRobinhoodStatus() {
+      try {
+        // Check connection status
+        const statusRes = await fetch("/api/robinhood");
+        const status = await statusRes.json();
+
+        if (status.connected) {
+          // Fetch portfolio if connected
+          const portfolioRes = await fetch("/api/robinhood/portfolio");
+          if (portfolioRes.ok) {
+            const portfolio = await portfolioRes.json();
+            setRobinhoodStatus({
+              connected: true,
+              portfolio: {
+                totalValue: portfolio.totalValue,
+                dayChange: portfolio.dayChange,
+                dayChangePercent: portfolio.dayChangePercent,
+              },
+            });
+          } else {
+            setRobinhoodStatus({ connected: true });
+          }
+        }
+      } catch {
+        // Silently fail - will show default action
+      }
+    }
+
+    checkRobinhoodStatus();
+  }, []);
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(value);
+
+  const formatPercent = (value: number) =>
+    `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+
+  const getRobinhoodAction = () => {
+    if (robinhoodStatus.connected && robinhoodStatus.portfolio) {
+      const { totalValue, dayChange, dayChangePercent } =
+        robinhoodStatus.portfolio;
+      const changeColor = dayChange >= 0 ? "text-green-600" : "text-red-600";
+      return {
+        text: "Show my Robinhood portfolio",
+        display: (
+          <div className="flex flex-col gap-1">
+            <span className="font-medium">Robinhood Connected</span>
+            <span className="text-muted-foreground">
+              {formatCurrency(totalValue)}{" "}
+              <span className={changeColor}>
+                ({formatPercent(dayChangePercent)})
+              </span>
+            </span>
+          </div>
+        ),
+      };
+    }
+    return {
+      text: "One tap, connect my Robinhood account.",
+      display: "One tap, connect my Robinhood account.",
+    };
+  };
+
+  const robinhoodAction = getRobinhoodAction();
+
   const suggestedActions = [
-    "What are the advantages of using Next.js?",
-    "Write code to demonstrate Dijkstra's algorithm",
-    "Help me write an essay about Silicon Valley",
-    "What is the weather in San Francisco?",
+    robinhoodAction,
+    { text: "Write code to demonstrate Dijkstra's algorithm", display: "Write code to demonstrate Dijkstra's algorithm" },
+    { text: "Help me write an essay about Silicon Valley", display: "Help me write an essay about Silicon Valley" },
+    { text: "What is the weather in San Francisco?", display: "What is the weather in San Francisco?" },
   ];
 
   return (
@@ -26,12 +108,12 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
       className="grid w-full gap-2 sm:grid-cols-2"
       data-testid="suggested-actions"
     >
-      {suggestedActions.map((suggestedAction, index) => (
+      {suggestedActions.map((action, index) => (
         <motion.div
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           initial={{ opacity: 0, y: 20 }}
-          key={suggestedAction}
+          key={action.text}
           transition={{ delay: 0.05 * index }}
         >
           <Suggestion
@@ -43,9 +125,9 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
                 parts: [{ type: "text", text: suggestion }],
               });
             }}
-            suggestion={suggestedAction}
+            suggestion={action.text}
           >
-            {suggestedAction}
+            {action.display}
           </Suggestion>
         </motion.div>
       ))}

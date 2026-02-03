@@ -21,6 +21,17 @@ import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
+import {
+  RobinhoodAccount,
+  type RobinhoodAccountProps,
+  RobinhoodConnect,
+  RobinhoodPortfolio,
+  type RobinhoodPortfolioProps,
+  RobinhoodPositions,
+  type RobinhoodPositionsProps,
+  RobinhoodQuote,
+  type RobinhoodQuoteProps,
+} from "./robinhood";
 import { Weather } from "./weather";
 
 const PurePreviewMessage = ({
@@ -33,6 +44,7 @@ const PurePreviewMessage = ({
   regenerate,
   isReadonly,
   requiresScrollPadding: _requiresScrollPadding,
+  robinhoodConnected,
 }: {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
@@ -43,6 +55,7 @@ const PurePreviewMessage = ({
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   requiresScrollPadding: boolean;
+  robinhoodConnected: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
 
@@ -339,6 +352,211 @@ const PurePreviewMessage = ({
                     )}
                   </ToolContent>
                 </Tool>
+              );
+            }
+
+            // Handle Robinhood Connect tool with custom UI
+            if (type === "tool-robinhoodConnect") {
+              const { toolCallId, state } = part;
+              const approvalId = (part as { approval?: { id: string } })
+                .approval?.id;
+              const isDenied =
+                state === "output-denied" ||
+                (state === "approval-responded" &&
+                  (part as { approval?: { approved?: boolean } }).approval
+                    ?.approved === false);
+              const widthClass = "w-[min(100%,450px)]";
+
+              // Show custom connect UI for pending/approved states
+              if (
+                state === "approval-requested" ||
+                state === "input-available"
+              ) {
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <RobinhoodConnect
+                      state="pending"
+                      onAllow={() => {
+                        if (approvalId) {
+                          addToolApprovalResponse({
+                            id: approvalId,
+                            approved: true,
+                          });
+                        }
+                      }}
+                      onDeny={() => {
+                        if (approvalId) {
+                          addToolApprovalResponse({
+                            id: approvalId,
+                            approved: false,
+                            reason: "User declined Robinhood connection",
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              }
+
+              if (state === "approval-responded") {
+                const approved = (
+                  part as { approval?: { approved?: boolean } }
+                ).approval?.approved;
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <RobinhoodConnect
+                      state={approved ? "approved" : "denied"}
+                      onAllow={() => {}}
+                      onDeny={() => {}}
+                    />
+                  </div>
+                );
+              }
+
+              if (isDenied) {
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <RobinhoodConnect
+                      state="denied"
+                      onAllow={() => {}}
+                      onDeny={() => {}}
+                    />
+                  </div>
+                );
+              }
+
+              if (state === "output-available") {
+                const output = part.output as {
+                  action?: string;
+                  connected?: boolean;
+                  message?: string;
+                };
+
+                // Show connected state or opening popup message
+                if (output?.connected) {
+                  return (
+                    <div className={widthClass} key={toolCallId}>
+                      <RobinhoodConnect
+                        state="connected"
+                        onAllow={() => {}}
+                        onDeny={() => {}}
+                      />
+                    </div>
+                  );
+                }
+
+                // For open_robinhood_login action, show approved state (popup opening)
+                // or connected state if login was successful
+                if (output?.action === "open_robinhood_login") {
+                  return (
+                    <div className={widthClass} key={toolCallId}>
+                      <RobinhoodConnect
+                        state={robinhoodConnected ? "connected" : "approved"}
+                        onAllow={() => {}}
+                        onDeny={() => {}}
+                      />
+                    </div>
+                  );
+                }
+              }
+
+              return null;
+            }
+
+            // Handle Robinhood Portfolio tool with custom UI
+            if (type === "tool-robinhoodGetPortfolio") {
+              const { toolCallId, state } = part;
+              const widthClass = "w-[min(100%,450px)]";
+
+              if (state === "output-available") {
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <RobinhoodPortfolio
+                      data={part.output as RobinhoodPortfolioProps["data"]}
+                    />
+                  </div>
+                );
+              }
+
+              // Show loading state for other states
+              return (
+                <div className={widthClass} key={toolCallId}>
+                  <Tool className="w-full" defaultOpen={true}>
+                    <ToolHeader state={state} type={type} />
+                  </Tool>
+                </div>
+              );
+            }
+
+            // Handle Robinhood Positions tool with custom UI
+            if (type === "tool-robinhoodGetPositions") {
+              const { toolCallId, state } = part;
+              const widthClass = "w-[min(100%,500px)]";
+
+              if (state === "output-available") {
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <RobinhoodPositions
+                      data={part.output as RobinhoodPositionsProps["data"]}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div className={widthClass} key={toolCallId}>
+                  <Tool className="w-full" defaultOpen={true}>
+                    <ToolHeader state={state} type={type} />
+                  </Tool>
+                </div>
+              );
+            }
+
+            // Handle Robinhood Quote tool with custom UI
+            if (type === "tool-robinhoodGetQuote") {
+              const { toolCallId, state } = part;
+              const widthClass = "w-[min(100%,400px)]";
+
+              if (state === "output-available") {
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <RobinhoodQuote
+                      data={part.output as RobinhoodQuoteProps["data"]}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div className={widthClass} key={toolCallId}>
+                  <Tool className="w-full" defaultOpen={true}>
+                    <ToolHeader state={state} type={type} />
+                  </Tool>
+                </div>
+              );
+            }
+
+            // Handle Robinhood Account tool with custom UI
+            if (type === "tool-robinhoodGetAccount") {
+              const { toolCallId, state } = part;
+              const widthClass = "w-[min(100%,450px)]";
+
+              if (state === "output-available") {
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <RobinhoodAccount
+                      data={part.output as RobinhoodAccountProps["data"]}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div className={widthClass} key={toolCallId}>
+                  <Tool className="w-full" defaultOpen={true}>
+                    <ToolHeader state={state} type={type} />
+                  </Tool>
+                </div>
               );
             }
 

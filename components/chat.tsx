@@ -28,6 +28,7 @@ import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { RobinhoodLoginDialog } from "./robinhood-login-dialog";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
@@ -70,6 +71,7 @@ export function Chat({
 
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
+  const [showRobinhoodLogin, setShowRobinhoodLogin] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
 
@@ -185,6 +187,50 @@ export function Chat({
     setMessages,
   });
 
+  // Track if we've already opened the Robinhood login for this session
+  const [robinhoodLoginOpened, setRobinhoodLoginOpened] = useState(false);
+
+  // Track if Robinhood is connected (updated after successful login)
+  const [robinhoodConnected, setRobinhoodConnected] = useState(false);
+
+  // Watch for Robinhood connect tool responses that should trigger the login popup
+  useEffect(() => {
+    if (robinhoodLoginOpened) return; // Don't re-open if already opened
+
+    for (const message of messages) {
+      if (message.role === "assistant") {
+        for (const part of message.parts || []) {
+          // Check for robinhoodConnect tool
+          if ("type" in part && part.type === "tool-robinhoodConnect") {
+            const state = "state" in part ? part.state : null;
+
+            // Open popup when output is available with the open action
+            if (state === "output-available" && "output" in part) {
+              const output = part.output as { action?: string };
+              if (output?.action === "open_robinhood_login") {
+                setShowRobinhoodLogin(true);
+                setRobinhoodLoginOpened(true);
+                return;
+              }
+            }
+
+            // Also open popup when approval was just responded (user clicked Allow)
+            // and the output will be the open action (we know this from tool logic)
+            if (
+              state === "approval-responded" &&
+              "approval" in part &&
+              (part.approval as { approved?: boolean })?.approved === true
+            ) {
+              setShowRobinhoodLogin(true);
+              setRobinhoodLoginOpened(true);
+              return;
+            }
+          }
+        }
+      }
+    }
+  }, [messages, robinhoodLoginOpened]);
+
   return (
     <>
       <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
@@ -201,6 +247,7 @@ export function Chat({
           isReadonly={isReadonly}
           messages={messages}
           regenerate={regenerate}
+          robinhoodConnected={robinhoodConnected}
           selectedModelId={initialChatModel}
           setMessages={setMessages}
           status={status}
@@ -276,6 +323,18 @@ export function Chat({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RobinhoodLoginDialog
+        open={showRobinhoodLogin}
+        onOpenChange={setShowRobinhoodLogin}
+        onSuccess={() => {
+          setRobinhoodConnected(true);
+          toast({
+            type: "success",
+            description: "Successfully connected to Robinhood!",
+          });
+        }}
+      />
     </>
   );
 }

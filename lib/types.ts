@@ -4,6 +4,13 @@ import type { ArtifactKind } from "@/components/artifact";
 import type { createDocument } from "./ai/tools/create-document";
 import type { getWeather } from "./ai/tools/get-weather";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
+import type {
+  robinhoodConnect,
+  robinhoodGetAccount,
+  robinhoodGetPortfolio,
+  robinhoodGetPositions,
+  robinhoodGetQuote,
+} from "./ai/tools/robinhood";
 import type { updateDocument } from "./ai/tools/update-document";
 import type { Suggestion } from "./db/schema";
 
@@ -21,12 +28,28 @@ type updateDocumentTool = InferUITool<ReturnType<typeof updateDocument>>;
 type requestSuggestionsTool = InferUITool<
   ReturnType<typeof requestSuggestions>
 >;
+type robinhoodConnectTool = InferUITool<ReturnType<typeof robinhoodConnect>>;
+type robinhoodGetAccountTool = InferUITool<
+  ReturnType<typeof robinhoodGetAccount>
+>;
+type robinhoodGetPortfolioTool = InferUITool<
+  ReturnType<typeof robinhoodGetPortfolio>
+>;
+type robinhoodGetPositionsTool = InferUITool<
+  ReturnType<typeof robinhoodGetPositions>
+>;
+type robinhoodGetQuoteTool = InferUITool<ReturnType<typeof robinhoodGetQuote>>;
 
 export type ChatTools = {
   getWeather: weatherTool;
   createDocument: createDocumentTool;
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;
+  robinhoodConnect: robinhoodConnectTool;
+  robinhoodGetAccount: robinhoodGetAccountTool;
+  robinhoodGetPortfolio: robinhoodGetPortfolioTool;
+  robinhoodGetPositions: robinhoodGetPositionsTool;
+  robinhoodGetQuote: robinhoodGetQuoteTool;
 };
 
 export type CustomUIDataTypes = {
