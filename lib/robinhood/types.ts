@@ -46,6 +46,7 @@ export interface RobinhoodSession {
 // Account types
 export interface RobinhoodAccount {
   url: string;
+  portfolio?: string;
   portfolio_cash: string;
   can_downgrade_to_cash: string;
   user: string;

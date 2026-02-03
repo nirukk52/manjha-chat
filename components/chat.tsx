@@ -302,6 +302,7 @@ export function Chat({
         isReadonly={isReadonly}
         messages={messages}
         regenerate={regenerate}
+        robinhoodConnected={robinhoodConnected}
         selectedModelId={currentModelId}
         selectedVisibilityType={visibilityType}
         sendMessage={sendMessage}

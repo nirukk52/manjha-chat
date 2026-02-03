@@ -556,18 +556,6 @@ export async function getPortfolio(
   const phoenixAccount = await getPhoenixAccount(userId);
 
   if (phoenixAccount) {
-    console.log("Phoenix account raw data:", {
-      total_equity: phoenixAccount.total_equity,
-      portfolio_equity: phoenixAccount.portfolio_equity,
-      portfolio_previous_close: phoenixAccount.portfolio_previous_close,
-      previous_close: phoenixAccount.previous_close,
-      total_previous_close: phoenixAccount.total_previous_close,
-      uninvested_cash: phoenixAccount.uninvested_cash,
-      account_buying_power: phoenixAccount.account_buying_power,
-      equities: phoenixAccount.equities,
-      crypto: phoenixAccount.crypto,
-    });
-
     // Use total_equity for the complete portfolio value (includes stocks, crypto, options, cash)
     const totalEquity = Number.parseFloat(phoenixAccount.total_equity);
     const portfolioEquity = Number.parseFloat(phoenixAccount.portfolio_equity);
@@ -600,13 +588,6 @@ export async function getPortfolio(
     const dayChangePercent =
       totalPreviousClose > 0 ? (dayChange / totalPreviousClose) * 100 : 0;
 
-    console.log("Calculated day change:", {
-      totalEquity,
-      totalPreviousClose,
-      dayChange,
-      dayChangePercent,
-    });
-
     return {
       totalValue: totalEquity,
       equity: portfolioEquity,
@@ -622,7 +603,6 @@ export async function getPortfolio(
   }
 
   // Fallback: Calculate manually from positions + crypto + options
-  console.log("Phoenix API failed, using fallback manual calculation");
 
   const account = await getAccount(userId);
   if (!account) {
@@ -635,24 +615,23 @@ export async function getPortfolio(
   // Try to get portfolio equity directly from portfolio endpoint first
   let portfolioEquity: number | null = null;
   let portfolioPreviousClose: number | null = null;
-  try {
-    const portfolio = await apiRequest<{
-      equity: string;
-      equity_previous_close: string;
-      extended_hours_equity: string;
-      market_value: string;
-    }>(
-      `${account.portfolio}`.replace(ROBINHOOD_API_BASE, ""),
-      {},
-      session.accessToken
-    );
-    portfolioEquity = Number.parseFloat(portfolio.equity);
-    portfolioPreviousClose = Number.parseFloat(portfolio.equity_previous_close);
-    console.log(
-      `Portfolio endpoint: equity=$${portfolioEquity}, previousClose=$${portfolioPreviousClose}`
-    );
-  } catch (error) {
-    console.error("Failed to get portfolio equity:", error);
+  if (account.portfolio) {
+    try {
+      const portfolio = await apiRequest<{
+        equity: string;
+        equity_previous_close: string;
+        extended_hours_equity: string;
+        market_value: string;
+      }>(
+        `${account.portfolio}`.replace(ROBINHOOD_API_BASE, ""),
+        {},
+        session.accessToken
+      );
+      portfolioEquity = Number.parseFloat(portfolio.equity);
+      portfolioPreviousClose = Number.parseFloat(portfolio.equity_previous_close);
+    } catch (error) {
+      console.error("Failed to get portfolio equity:", error);
+    }
   }
 
   // Fetch stock positions with real-time quotes (with pagination)
@@ -667,7 +646,6 @@ export async function getPortfolio(
     nextUrl = positions.next;
   }
 
-  console.log(`Found ${allPositions.length} stock positions`);
 
   let totalStockValue = 0;
   let totalStockPreviousClose = 0;
@@ -703,10 +681,6 @@ export async function getPortfolio(
       const previousClose = Number.parseFloat(quote.previous_close);
       const positionValue = quantity * currentPrice;
 
-      console.log(
-        `Stock: ${instrument.symbol} qty=${quantity} price=$${currentPrice} (ext=${extendedHoursPrice}, reg=${lastTradePrice}) value=$${positionValue}`
-      );
-
       totalStockValue += positionValue;
       totalStockPreviousClose += quantity * previousClose;
     } catch (error) {
@@ -718,9 +692,7 @@ export async function getPortfolio(
   let totalCryptoValue = 0;
   try {
     const cryptoHoldings = await getCryptoHoldings(userId);
-    console.log(`Found ${cryptoHoldings.length} crypto holdings`);
     for (const holding of cryptoHoldings) {
-      console.log(`Crypto: ${holding.symbol} = $${holding.marketValue}`);
       totalCryptoValue += holding.marketValue;
     }
   } catch (error) {
@@ -732,21 +704,13 @@ export async function getPortfolio(
   let totalOptionsValue = 0;
   try {
     const optionsPositions = await getOptionsPositions(userId);
-    console.log(`Found ${optionsPositions.length} options positions`);
     for (const option of optionsPositions) {
-      console.log(
-        `Option: ${option.symbol} ${option.optionType} = $${option.marketValue}`
-      );
       totalOptionsValue += option.marketValue;
     }
   } catch (error) {
     console.error("Options fetch error:", error);
     // Options may not be enabled for all accounts
   }
-
-  console.log(
-    `Portfolio breakdown: stocks=$${totalStockValue}, crypto=$${totalCryptoValue}, options=$${totalOptionsValue}, cash=$${cash}`
-  );
 
   const totalMarketValue =
     totalStockValue + totalCryptoValue + totalOptionsValue;
@@ -997,7 +961,6 @@ async function getCryptoPairId(
     const pair = pairs.results.find(
       (p) => p.asset_currency.code === symbol || p.symbol === `${symbol}-USD`
     );
-    console.log(`Found crypto pair for ${symbol}:`, pair?.id, pair?.symbol);
     return pair?.id || null;
   } catch (error) {
     console.error(`Failed to get crypto pair for ${symbol}:`, error);
@@ -1032,10 +995,6 @@ export async function getCryptoHoldings(
     const symbol = holding.currency.code;
     const name = holding.currency.name;
 
-    console.log(
-      `Processing crypto holding: ${symbol} (${name}), quantity=${quantity}`
-    );
-
     // Calculate average cost from cost bases
     let totalCost = 0;
     let totalQuantity = 0;
@@ -1050,7 +1009,6 @@ export async function getCryptoHoldings(
     try {
       // First get the trading pair ID for this crypto
       const pairId = await getCryptoPairId(symbol, session.accessToken);
-      console.log(`Crypto pair ID for ${symbol}: ${pairId}`);
 
       if (pairId) {
         const quote = await apiRequest<RobinhoodCryptoQuote>(
@@ -1059,7 +1017,6 @@ export async function getCryptoHoldings(
           session.accessToken
         );
         currentPrice = Number.parseFloat(quote.mark_price);
-        console.log(`Crypto quote for ${symbol}: price=$${currentPrice}`);
       }
     } catch (error) {
       console.error(`Failed to get crypto quote for ${symbol}:`, error);

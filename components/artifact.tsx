@@ -67,6 +67,7 @@ function PureArtifact({
   regenerate,
   votes,
   isReadonly,
+  robinhoodConnected,
   selectedVisibilityType,
   selectedModelId,
 }: {
@@ -84,6 +85,7 @@ function PureArtifact({
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
+  robinhoodConnected: boolean;
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
 }) {
@@ -328,6 +330,7 @@ function PureArtifact({
                   isReadonly={isReadonly}
                   messages={messages}
                   regenerate={regenerate}
+                  robinhoodConnected={robinhoodConnected}
                   setMessages={setMessages}
                   status={status}
                   votes={votes}

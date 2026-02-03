@@ -18,6 +18,7 @@ type ArtifactMessagesProps = {
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   artifactStatus: UIArtifact["status"];
+  robinhoodConnected: boolean;
 };
 
 function PureArtifactMessages({
@@ -29,6 +30,7 @@ function PureArtifactMessages({
   setMessages,
   regenerate,
   isReadonly,
+  robinhoodConnected,
 }: ArtifactMessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -57,6 +59,7 @@ function PureArtifactMessages({
           requiresScrollPadding={
             hasSentMessage && index === messages.length - 1
           }
+          robinhoodConnected={robinhoodConnected}
           setMessages={setMessages}
           vote={
             votes
