@@ -19,9 +19,12 @@ import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import {
   robinhoodConnect,
   robinhoodGetAccount,
+  robinhoodGetCryptoHoldings,
+  robinhoodGetOptionsPositions,
   robinhoodGetPortfolio,
   robinhoodGetPositions,
   robinhoodGetQuote,
+  robinhoodGetTodayOptionsTrades,
 } from "@/lib/ai/tools/robinhood";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
@@ -163,6 +166,9 @@ export async function POST(request: Request) {
                 "robinhoodGetPortfolio",
                 "robinhoodGetPositions",
                 "robinhoodGetQuote",
+                "robinhoodGetCryptoHoldings",
+                "robinhoodGetOptionsPositions",
+                "robinhoodGetTodayOptionsTrades",
               ],
           providerOptions: isReasoningModel
             ? {
@@ -181,6 +187,13 @@ export async function POST(request: Request) {
             robinhoodGetPortfolio: robinhoodGetPortfolio({ session }),
             robinhoodGetPositions: robinhoodGetPositions({ session }),
             robinhoodGetQuote: robinhoodGetQuote({ session }),
+            robinhoodGetCryptoHoldings: robinhoodGetCryptoHoldings({ session }),
+            robinhoodGetOptionsPositions: robinhoodGetOptionsPositions({
+              session,
+            }),
+            robinhoodGetTodayOptionsTrades: robinhoodGetTodayOptionsTrades({
+              session,
+            }),
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,

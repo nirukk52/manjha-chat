@@ -279,6 +279,7 @@ export function Chat({
               input={input}
               messages={messages}
               onModelChange={setCurrentModelId}
+              onOpenRobinhoodLogin={() => setShowRobinhoodLogin(true)}
               robinhoodConnected={robinhoodConnected}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
@@ -343,7 +344,6 @@ export function Chat({
       </AlertDialog>
 
       <RobinhoodLoginDialog
-        open={showRobinhoodLogin}
         onOpenChange={setShowRobinhoodLogin}
         onSuccess={() => {
           setRobinhoodConnected(true);
@@ -352,6 +352,7 @@ export function Chat({
             description: "Successfully connected to Robinhood!",
           });
         }}
+        open={showRobinhoodLogin}
       />
     </>
   );

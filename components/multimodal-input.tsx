@@ -43,6 +43,7 @@ import {
 } from "./elements/prompt-input";
 import { ArrowUpIcon, PaperclipIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
+import { RobinhoodChip } from "./robinhood-chip";
 import { SuggestedActions } from "./suggested-actions";
 import { Button } from "./ui/button";
 import type { VisibilityType } from "./visibility-selector";
@@ -69,6 +70,7 @@ function PureMultimodalInput({
   selectedModelId,
   onModelChange,
   robinhoodConnected,
+  onOpenRobinhoodLogin,
 }: {
   chatId: string;
   input: string;
@@ -85,6 +87,7 @@ function PureMultimodalInput({
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
   robinhoodConnected?: boolean;
+  onOpenRobinhoodLogin?: () => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -304,7 +307,6 @@ function PureMultimodalInput({
         uploadQueue.length === 0 && (
           <SuggestedActions
             chatId={chatId}
-            robinhoodConnected={robinhoodConnected}
             selectedVisibilityType={selectedVisibilityType}
             sendMessage={sendMessage}
           />
@@ -390,6 +392,17 @@ function PureMultimodalInput({
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
+            />
+            <RobinhoodChip
+              onConnect={onOpenRobinhoodLogin || (() => {})}
+              onShowPortfolio={() => {
+                window.history.pushState({}, "", `/chat/${chatId}`);
+                sendMessage({
+                  role: "user",
+                  parts: [{ type: "text", text: "Show my Robinhood portfolio" }],
+                });
+              }}
+              refreshTrigger={robinhoodConnected}
             />
           </PromptInputTools>
 
@@ -494,9 +507,12 @@ function PureModelSelectorCompact({
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
-        <Button className="h-8 w-[200px] justify-between px-2" variant="ghost">
+        <Button
+          aria-label={`Select model: ${selectedModel.name}`}
+          className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+          variant="ghost"
+        >
           {provider && <ModelSelectorLogo provider={provider} />}
-          <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
         </Button>
       </ModelSelectorTrigger>
       <ModelSelectorContent>

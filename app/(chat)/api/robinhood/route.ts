@@ -1,4 +1,5 @@
 import { auth } from "@/app/(auth)/auth";
+import { ChatSDKError } from "@/lib/errors";
 import {
   clearSession,
   getConnectionStatus,
@@ -6,7 +7,6 @@ import {
   logout,
   resetDeviceToken,
 } from "@/lib/robinhood/client";
-import { ChatSDKError } from "@/lib/errors";
 
 export async function GET() {
   const session = await auth();
@@ -15,7 +15,7 @@ export async function GET() {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
-  const status = getConnectionStatus(session.user.id);
+  const status = await getConnectionStatus(session.user.id);
 
   return Response.json(status);
 }
@@ -78,7 +78,7 @@ export async function DELETE() {
 
   try {
     await logout(session.user.id);
-    clearSession(session.user.id);
+    await clearSession(session.user.id);
 
     return Response.json({ success: true });
   } catch (error) {

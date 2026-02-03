@@ -13,7 +13,12 @@ import {
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
-type LoginStep = "credentials" | "mfa" | "device-verification" | "success" | "error";
+type LoginStep =
+  | "credentials"
+  | "mfa"
+  | "device-verification"
+  | "success"
+  | "error";
 
 interface RobinhoodLoginDialogProps {
   open: boolean;
@@ -90,7 +95,10 @@ export function RobinhoodLoginDialog({
               onOpenChange(false);
             }, 1500);
           } else {
-            setError(retryData.error || "Login failed after verification. Please try again.");
+            setError(
+              retryData.error ||
+                "Login failed after verification. Please try again."
+            );
           }
         } else if (data.deviceVerificationRequired) {
           // Push notification approval required (no code needed)
@@ -105,7 +113,9 @@ export function RobinhoodLoginDialog({
           // Fallback for old error message format
           setStep("device-verification");
         } else {
-          setError(data.error || "Login failed. Please check your credentials.");
+          setError(
+            data.error || "Login failed. Please check your credentials."
+          );
         }
       } catch {
         setError("Connection failed. Please try again.");
@@ -306,7 +316,7 @@ export function RobinhoodLoginDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -327,32 +337,32 @@ export function RobinhoodLoginDialog({
         </DialogHeader>
 
         {step === "credentials" && (
-          <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+          <form className="space-y-4" onSubmit={handleCredentialsSubmit}>
             <div className="space-y-2">
               <Label htmlFor="rh-email">Email</Label>
               <Input
-                id="rh-email"
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
                 autoComplete="email"
                 autoFocus
                 disabled={isLoading}
+                id="rh-email"
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+                type="email"
+                value={email}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="rh-password">Password</Label>
               <Input
-                id="rh-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
                 autoComplete="current-password"
                 disabled={isLoading}
+                id="rh-password"
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                type="password"
+                value={password}
               />
             </div>
 
@@ -365,14 +375,14 @@ export function RobinhoodLoginDialog({
 
             <div className="flex justify-end gap-2">
               <Button
+                disabled={isLoading}
+                onClick={() => onOpenChange(false)}
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isLoading}
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button disabled={isLoading} type="submit">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 size-4 animate-spin" />
@@ -387,25 +397,25 @@ export function RobinhoodLoginDialog({
         )}
 
         {step === "mfa" && (
-          <form onSubmit={handleMfaSubmit} className="space-y-4">
+          <form className="space-y-4" onSubmit={handleMfaSubmit}>
             <div className="space-y-2">
               <Label htmlFor="rh-mfa">Verification Code</Label>
               <p className="text-sm text-muted-foreground">
                 {getMfaInstructions()}
               </p>
               <Input
+                autoFocus
+                className="text-center text-lg tracking-widest"
+                disabled={isLoading}
                 id="rh-mfa"
-                type="text"
                 inputMode="numeric"
+                maxLength={6}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
                 pattern="[0-9]*"
                 placeholder="000000"
-                value={mfaCode}
-                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
                 required
-                autoFocus
-                maxLength={6}
-                disabled={isLoading}
-                className="text-center text-lg tracking-widest"
+                type="text"
+                value={mfaCode}
               />
             </div>
 
@@ -418,18 +428,18 @@ export function RobinhoodLoginDialog({
 
             <div className="flex justify-end gap-2">
               <Button
-                type="button"
-                variant="outline"
+                disabled={isLoading}
                 onClick={() => {
                   setStep("credentials");
                   setMfaCode("");
                   setError(null);
                 }}
-                disabled={isLoading}
+                type="button"
+                variant="outline"
               >
                 Back
               </Button>
-              <Button type="submit" disabled={isLoading || mfaCode.length < 6}>
+              <Button disabled={isLoading || mfaCode.length < 6} type="submit">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 size-4 animate-spin" />
@@ -451,8 +461,8 @@ export function RobinhoodLoginDialog({
               </div>
               <div className="space-y-2 text-center">
                 <p className="text-sm text-muted-foreground">
-                  Robinhood sent a verification request to your registered device
-                  or email.
+                  Robinhood sent a verification request to your registered
+                  device or email.
                 </p>
                 <p className="text-sm font-medium">
                   Please approve the login, then click Continue.
@@ -470,20 +480,20 @@ export function RobinhoodLoginDialog({
             <div className="flex flex-col gap-3">
               <div className="flex justify-end gap-2">
                 <Button
-                  type="button"
-                  variant="outline"
+                  disabled={isLoading}
                   onClick={() => {
                     setStep("credentials");
                     setError(null);
                   }}
-                  disabled={isLoading}
+                  type="button"
+                  variant="outline"
                 >
                   Back
                 </Button>
                 <Button
-                  type="button"
-                  onClick={handleDeviceVerificationRetry}
                   disabled={isLoading}
+                  onClick={handleDeviceVerificationRetry}
+                  type="button"
                 >
                   {isLoading ? (
                     <>
@@ -496,10 +506,10 @@ export function RobinhoodLoginDialog({
                 </Button>
               </div>
               <button
-                type="button"
-                onClick={handleRequestNewVerification}
-                disabled={isLoading}
                 className="text-center text-sm text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+                disabled={isLoading}
+                onClick={handleRequestNewVerification}
+                type="button"
               >
                 Didn't receive it? Request new verification
               </button>

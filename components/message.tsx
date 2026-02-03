@@ -375,7 +375,6 @@ const PurePreviewMessage = ({
                 return (
                   <div className={widthClass} key={toolCallId}>
                     <RobinhoodConnect
-                      state="pending"
                       onAllow={() => {
                         if (approvalId) {
                           addToolApprovalResponse({
@@ -393,21 +392,21 @@ const PurePreviewMessage = ({
                           });
                         }
                       }}
+                      state="pending"
                     />
                   </div>
                 );
               }
 
               if (state === "approval-responded") {
-                const approved = (
-                  part as { approval?: { approved?: boolean } }
-                ).approval?.approved;
+                const approved = (part as { approval?: { approved?: boolean } })
+                  .approval?.approved;
                 return (
                   <div className={widthClass} key={toolCallId}>
                     <RobinhoodConnect
-                      state={approved ? "approved" : "denied"}
                       onAllow={() => {}}
                       onDeny={() => {}}
+                      state={approved ? "approved" : "denied"}
                     />
                   </div>
                 );
@@ -417,9 +416,9 @@ const PurePreviewMessage = ({
                 return (
                   <div className={widthClass} key={toolCallId}>
                     <RobinhoodConnect
-                      state="denied"
                       onAllow={() => {}}
                       onDeny={() => {}}
+                      state="denied"
                     />
                   </div>
                 );
@@ -437,9 +436,9 @@ const PurePreviewMessage = ({
                   return (
                     <div className={widthClass} key={toolCallId}>
                       <RobinhoodConnect
-                        state="connected"
                         onAllow={() => {}}
                         onDeny={() => {}}
+                        state="connected"
                       />
                     </div>
                   );
@@ -451,9 +450,9 @@ const PurePreviewMessage = ({
                   return (
                     <div className={widthClass} key={toolCallId}>
                       <RobinhoodConnect
-                        state={robinhoodConnected ? "connected" : "approved"}
                         onAllow={() => {}}
                         onDeny={() => {}}
+                        state={robinhoodConnected ? "connected" : "approved"}
                       />
                     </div>
                   );
@@ -466,6 +465,8 @@ const PurePreviewMessage = ({
             // Handle Robinhood Portfolio tool with custom UI
             if (type === "tool-robinhoodGetPortfolio") {
               const { toolCallId, state } = part;
+              const approvalId = (part as { approval?: { id: string } })
+                .approval?.id;
               const widthClass = "w-[min(100%,450px)]";
 
               if (state === "output-available") {
@@ -478,11 +479,42 @@ const PurePreviewMessage = ({
                 );
               }
 
-              // Show loading state for other states
+              // Show tool with approval buttons when approval is requested
               return (
                 <div className={widthClass} key={toolCallId}>
                   <Tool className="w-full" defaultOpen={true}>
                     <ToolHeader state={state} type={type} />
+                    <ToolContent>
+                      {state === "approval-requested" && approvalId && (
+                        <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+                          <button
+                            className="rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: false,
+                                reason: "User denied portfolio access",
+                              });
+                            }}
+                            type="button"
+                          >
+                            Deny
+                          </button>
+                          <button
+                            className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: true,
+                              });
+                            }}
+                            type="button"
+                          >
+                            Allow
+                          </button>
+                        </div>
+                      )}
+                    </ToolContent>
                   </Tool>
                 </div>
               );
@@ -491,6 +523,8 @@ const PurePreviewMessage = ({
             // Handle Robinhood Positions tool with custom UI
             if (type === "tool-robinhoodGetPositions") {
               const { toolCallId, state } = part;
+              const approvalId = (part as { approval?: { id: string } })
+                .approval?.id;
               const widthClass = "w-[min(100%,500px)]";
 
               if (state === "output-available") {
@@ -507,6 +541,37 @@ const PurePreviewMessage = ({
                 <div className={widthClass} key={toolCallId}>
                   <Tool className="w-full" defaultOpen={true}>
                     <ToolHeader state={state} type={type} />
+                    <ToolContent>
+                      {state === "approval-requested" && approvalId && (
+                        <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+                          <button
+                            className="rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: false,
+                                reason: "User denied positions access",
+                              });
+                            }}
+                            type="button"
+                          >
+                            Deny
+                          </button>
+                          <button
+                            className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: true,
+                              });
+                            }}
+                            type="button"
+                          >
+                            Allow
+                          </button>
+                        </div>
+                      )}
+                    </ToolContent>
                   </Tool>
                 </div>
               );
@@ -515,6 +580,8 @@ const PurePreviewMessage = ({
             // Handle Robinhood Quote tool with custom UI
             if (type === "tool-robinhoodGetQuote") {
               const { toolCallId, state } = part;
+              const approvalId = (part as { approval?: { id: string } })
+                .approval?.id;
               const widthClass = "w-[min(100%,400px)]";
 
               if (state === "output-available") {
@@ -531,6 +598,37 @@ const PurePreviewMessage = ({
                 <div className={widthClass} key={toolCallId}>
                   <Tool className="w-full" defaultOpen={true}>
                     <ToolHeader state={state} type={type} />
+                    <ToolContent>
+                      {state === "approval-requested" && approvalId && (
+                        <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+                          <button
+                            className="rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: false,
+                                reason: "User denied quote access",
+                              });
+                            }}
+                            type="button"
+                          >
+                            Deny
+                          </button>
+                          <button
+                            className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: true,
+                              });
+                            }}
+                            type="button"
+                          >
+                            Allow
+                          </button>
+                        </div>
+                      )}
+                    </ToolContent>
                   </Tool>
                 </div>
               );
@@ -539,6 +637,8 @@ const PurePreviewMessage = ({
             // Handle Robinhood Account tool with custom UI
             if (type === "tool-robinhoodGetAccount") {
               const { toolCallId, state } = part;
+              const approvalId = (part as { approval?: { id: string } })
+                .approval?.id;
               const widthClass = "w-[min(100%,450px)]";
 
               if (state === "output-available") {
@@ -555,6 +655,37 @@ const PurePreviewMessage = ({
                 <div className={widthClass} key={toolCallId}>
                   <Tool className="w-full" defaultOpen={true}>
                     <ToolHeader state={state} type={type} />
+                    <ToolContent>
+                      {state === "approval-requested" && approvalId && (
+                        <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
+                          <button
+                            className="rounded-md px-3 py-1.5 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: false,
+                                reason: "User denied account access",
+                              });
+                            }}
+                            type="button"
+                          >
+                            Deny
+                          </button>
+                          <button
+                            className="rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-sm transition-colors hover:bg-primary/90"
+                            onClick={() => {
+                              addToolApprovalResponse({
+                                id: approvalId,
+                                approved: true,
+                              });
+                            }}
+                            type="button"
+                          >
+                            Allow
+                          </button>
+                        </div>
+                      )}
+                    </ToolContent>
                   </Tool>
                 </div>
               );

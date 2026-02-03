@@ -110,14 +110,14 @@ export function RobinhoodConnect({
       {/* Actions */}
       {state === "pending" && (
         <div className="flex items-center justify-end gap-2 border-t bg-muted/30 px-4 py-3">
-          <Button variant="ghost" size="sm" onClick={onDeny}>
+          <Button onClick={onDeny} size="sm" variant="ghost">
             Not Now
           </Button>
           <Button
-            size="sm"
-            onClick={onAllow}
-            style={{ backgroundColor: ROBINHOOD_GREEN }}
             className="text-white hover:opacity-90"
+            onClick={onAllow}
+            size="sm"
+            style={{ backgroundColor: ROBINHOOD_GREEN }}
           >
             Connect
           </Button>
@@ -161,10 +161,7 @@ export function RobinhoodPortfolio({ data }: RobinhoodPortfolioProps) {
 
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
-      <div
-        className="p-4"
-        style={{ backgroundColor: ROBINHOOD_GREEN }}
-      >
+      <div className="p-4" style={{ backgroundColor: ROBINHOOD_GREEN }}>
         <p className="text-sm text-white/80">Portfolio Value</p>
         <p className="text-3xl font-bold text-white">{data.totalValue}</p>
         <p
@@ -232,9 +229,7 @@ export function RobinhoodPositions({ data }: RobinhoodPositionsProps) {
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
       <div className="border-b bg-muted/30 px-4 py-3">
-        <h3 className="font-semibold">
-          Positions ({data.positionCount})
-        </h3>
+        <h3 className="font-semibold">Positions ({data.positionCount})</h3>
       </div>
 
       <div className="divide-y">
@@ -243,8 +238,8 @@ export function RobinhoodPositions({ data }: RobinhoodPositionsProps) {
 
           return (
             <div
-              key={position.symbol}
               className="flex items-center justify-between p-4"
+              key={position.symbol}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">

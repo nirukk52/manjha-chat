@@ -2,11 +2,14 @@ import { tool } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
 import {
+  getAccount,
   getConnectionStatus,
+  getCryptoHoldings,
+  getOptionsPositions,
   getPortfolio,
   getPositions,
   getQuote,
-  getAccount,
+  getTodayOptionsOrders,
 } from "@/lib/robinhood/client";
 
 type RobinhoodToolProps = {
@@ -31,7 +34,7 @@ export const robinhoodConnect = ({ session }: RobinhoodToolProps) =>
         };
       }
 
-      const status = getConnectionStatus(userId);
+      const status = await getConnectionStatus(userId);
 
       if (status.connected) {
         return {
@@ -65,10 +68,11 @@ export const robinhoodGetAccount = ({ session }: RobinhoodToolProps) =>
         return { error: "User not authenticated" };
       }
 
-      const status = getConnectionStatus(userId);
+      const status = await getConnectionStatus(userId);
       if (!status.connected) {
         return {
-          error: "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
+          error:
+            "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
           needsConnection: true,
         };
       }
@@ -90,7 +94,8 @@ export const robinhoodGetAccount = ({ session }: RobinhoodToolProps) =>
         };
       } catch (error) {
         return {
-          error: error instanceof Error ? error.message : "Failed to fetch account",
+          error:
+            error instanceof Error ? error.message : "Failed to fetch account",
         };
       }
     },
@@ -111,10 +116,11 @@ export const robinhoodGetPortfolio = ({ session }: RobinhoodToolProps) =>
         return { error: "User not authenticated" };
       }
 
-      const status = getConnectionStatus(userId);
+      const status = await getConnectionStatus(userId);
       if (!status.connected) {
         return {
-          error: "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
+          error:
+            "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
           needsConnection: true,
         };
       }
@@ -126,15 +132,27 @@ export const robinhoodGetPortfolio = ({ session }: RobinhoodToolProps) =>
 
         return {
           totalValue: `$${portfolio.totalValue.toFixed(2)}`,
-          equity: `$${portfolio.equity.toFixed(2)}`,
+          portfolioEquity: `$${portfolio.equity.toFixed(2)}`,
+          stocksEquity: portfolio.stocksEquity
+            ? `$${portfolio.stocksEquity.toFixed(2)}`
+            : undefined,
+          cryptoEquity: portfolio.cryptoEquity
+            ? `$${portfolio.cryptoEquity.toFixed(2)}`
+            : undefined,
           cash: `$${portfolio.cash.toFixed(2)}`,
           buyingPower: `$${portfolio.buyingPower.toFixed(2)}`,
+          cryptoBuyingPower: portfolio.cryptoBuyingPower
+            ? `$${portfolio.cryptoBuyingPower.toFixed(2)}`
+            : undefined,
           dayChange: `${changeSign}$${portfolio.dayChange.toFixed(2)}`,
           dayChangePercent: `${changeSign}${portfolio.dayChangePercent.toFixed(2)}%`,
         };
       } catch (error) {
         return {
-          error: error instanceof Error ? error.message : "Failed to fetch portfolio",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch portfolio",
         };
       }
     },
@@ -155,10 +173,11 @@ export const robinhoodGetPositions = ({ session }: RobinhoodToolProps) =>
         return { error: "User not authenticated" };
       }
 
-      const status = getConnectionStatus(userId);
+      const status = await getConnectionStatus(userId);
       if (!status.connected) {
         return {
-          error: "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
+          error:
+            "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
           needsConnection: true,
         };
       }
@@ -193,7 +212,10 @@ export const robinhoodGetPositions = ({ session }: RobinhoodToolProps) =>
         };
       } catch (error) {
         return {
-          error: error instanceof Error ? error.message : "Failed to fetch positions",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch positions",
         };
       }
     },
@@ -240,6 +262,226 @@ export const robinhoodGetQuote = ({ session }: RobinhoodToolProps) =>
             error instanceof Error
               ? error.message
               : `Failed to fetch quote for ${symbol}`,
+        };
+      }
+    },
+  });
+
+/**
+ * Tool to get cryptocurrency holdings from Robinhood
+ */
+export const robinhoodGetCryptoHoldings = ({ session }: RobinhoodToolProps) =>
+  tool({
+    description:
+      "Get all cryptocurrency holdings in the user's Robinhood account, including quantity, average cost, current price, market value, and gain/loss for each crypto position. Requires the user to be connected to Robinhood first.",
+    inputSchema: z.object({}),
+    needsApproval: true,
+    execute: async () => {
+      const userId = session.user?.id;
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+
+      const status = await getConnectionStatus(userId);
+      if (!status.connected) {
+        return {
+          error:
+            "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
+          needsConnection: true,
+        };
+      }
+
+      try {
+        const holdings = await getCryptoHoldings(userId);
+
+        if (holdings.length === 0) {
+          return {
+            message: "No cryptocurrency holdings found in your account.",
+            holdings: [],
+          };
+        }
+
+        const formattedHoldings = holdings.map((holding) => {
+          const gainSign = holding.totalGainLoss >= 0 ? "+" : "";
+          return {
+            symbol: holding.symbol,
+            name: holding.name,
+            quantity: holding.quantity.toFixed(8),
+            averageCost: `$${holding.averageCost.toFixed(2)}`,
+            currentPrice: `$${holding.currentPrice.toFixed(2)}`,
+            marketValue: `$${holding.marketValue.toFixed(2)}`,
+            totalGainLoss: `${gainSign}$${holding.totalGainLoss.toFixed(2)}`,
+            totalGainLossPercent: `${gainSign}${holding.totalGainLossPercent.toFixed(2)}%`,
+          };
+        });
+
+        const totalValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
+
+        return {
+          holdingCount: holdings.length,
+          totalCryptoValue: `$${totalValue.toFixed(2)}`,
+          holdings: formattedHoldings,
+        };
+      } catch (error) {
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch crypto holdings",
+        };
+      }
+    },
+  });
+
+/**
+ * Tool to get options positions from Robinhood
+ */
+export const robinhoodGetOptionsPositions = ({ session }: RobinhoodToolProps) =>
+  tool({
+    description:
+      "Get all options positions in the user's Robinhood account, including option type (call/put), strike price, expiration date, quantity, and gain/loss for each position. Requires the user to be connected to Robinhood first.",
+    inputSchema: z.object({}),
+    needsApproval: true,
+    execute: async () => {
+      const userId = session.user?.id;
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+
+      const status = await getConnectionStatus(userId);
+      if (!status.connected) {
+        return {
+          error:
+            "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
+          needsConnection: true,
+        };
+      }
+
+      try {
+        const positions = await getOptionsPositions(userId);
+
+        if (positions.length === 0) {
+          return {
+            message: "No options positions found in your account.",
+            positions: [],
+          };
+        }
+
+        const formattedPositions = positions.map((pos) => {
+          const gainSign = pos.totalGainLoss >= 0 ? "+" : "";
+          return {
+            symbol: pos.symbol,
+            type: `${pos.positionType} ${pos.optionType}`,
+            strikePrice: `$${pos.strikePrice.toFixed(2)}`,
+            expirationDate: pos.expirationDate,
+            quantity: pos.quantity,
+            averageCost: `$${pos.averageCost.toFixed(2)}`,
+            currentPrice: `$${pos.currentPrice.toFixed(2)}`,
+            marketValue: `$${pos.marketValue.toFixed(2)}`,
+            totalGainLoss: `${gainSign}$${pos.totalGainLoss.toFixed(2)}`,
+            totalGainLossPercent: `${gainSign}${pos.totalGainLossPercent.toFixed(2)}%`,
+          };
+        });
+
+        const totalValue = positions.reduce((sum, p) => sum + p.marketValue, 0);
+
+        return {
+          positionCount: positions.length,
+          totalOptionsValue: `$${totalValue.toFixed(2)}`,
+          positions: formattedPositions,
+        };
+      } catch (error) {
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch options positions",
+        };
+      }
+    },
+  });
+
+/**
+ * Tool to get today's options trades from Robinhood
+ * Shows all option orders placed today with their execution details
+ */
+export const robinhoodGetTodayOptionsTrades = ({
+  session,
+}: RobinhoodToolProps) =>
+  tool({
+    description:
+      "Get all options trades placed today in the user's Robinhood account. Shows each trade with the underlying symbol, option type (call/put), strike price, expiration date, whether it was a buy or sell, quantity, price, and execution status. Requires the user to be connected to Robinhood first.",
+    inputSchema: z.object({}),
+    needsApproval: true,
+    execute: async () => {
+      const userId = session.user?.id;
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+
+      const status = await getConnectionStatus(userId);
+      if (!status.connected) {
+        return {
+          error:
+            "Not connected to Robinhood. Please connect first using the robinhoodConnect tool.",
+          needsConnection: true,
+        };
+      }
+
+      try {
+        const trades = await getTodayOptionsOrders(userId);
+
+        if (trades.length === 0) {
+          return {
+            message: "No options trades found for today.",
+            trades: [],
+          };
+        }
+
+        const formattedTrades = trades.map((trade) => {
+          // Format the action description (e.g., "Buy to Open", "Sell to Close")
+          const action = `${trade.side === "buy" ? "Buy" : "Sell"} to ${trade.positionEffect === "open" ? "Open" : "Close"}`;
+
+          return {
+            symbol: trade.symbol,
+            optionDescription: `${trade.symbol} ${trade.expirationDate} $${trade.strikePrice.toFixed(2)} ${trade.optionType.toUpperCase()}`,
+            action,
+            quantity: trade.quantity,
+            price: `$${trade.price.toFixed(2)}`,
+            totalValue: `$${trade.totalValue.toFixed(2)}`,
+            status: trade.state,
+            executedAt: new Date(trade.executedAt).toLocaleString("en-US", {
+              timeZone: "America/New_York",
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            }),
+          };
+        });
+
+        // Calculate summary statistics
+        const filledTrades = trades.filter((t) => t.state === "filled");
+        const totalBuyValue = filledTrades
+          .filter((t) => t.side === "buy")
+          .reduce((sum, t) => sum + t.totalValue, 0);
+        const totalSellValue = filledTrades
+          .filter((t) => t.side === "sell")
+          .reduce((sum, t) => sum + t.totalValue, 0);
+
+        return {
+          tradeCount: trades.length,
+          filledCount: filledTrades.length,
+          totalBuyValue: `$${totalBuyValue.toFixed(2)}`,
+          totalSellValue: `$${totalSellValue.toFixed(2)}`,
+          netCashFlow: `${totalSellValue >= totalBuyValue ? "+" : ""}$${(totalSellValue - totalBuyValue).toFixed(2)}`,
+          trades: formattedTrades,
+        };
+      } catch (error) {
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to fetch today's options trades",
         };
       }
     },

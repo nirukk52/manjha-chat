@@ -168,3 +168,23 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+/**
+ * Stores Robinhood OAuth sessions for authenticated users.
+ * Persists tokens across server restarts and serverless function instances.
+ */
+export const robinhoodSession = pgTable("RobinhoodSession", {
+  userId: uuid("userId")
+    .primaryKey()
+    .notNull()
+    .references(() => user.id),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken"),
+  accountId: text("accountId"),
+  accountUrl: text("accountUrl"),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").notNull(),
+  updatedAt: timestamp("updatedAt").notNull(),
+});
+
+export type RobinhoodSession = InferSelectModel<typeof robinhoodSession>;

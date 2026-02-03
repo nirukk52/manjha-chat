@@ -24,6 +24,8 @@ import {
   type DBMessage,
   document,
   message,
+  type RobinhoodSession,
+  robinhoodSession,
   type Suggestion,
   stream,
   suggestion,
@@ -597,6 +599,117 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get stream ids by chat id"
+    );
+  }
+}
+
+/**
+ * Get Robinhood session for a user (returns null if expired or not found)
+ */
+export async function getRobinhoodSession({
+  userId,
+}: {
+  userId: string;
+}): Promise<RobinhoodSession | null> {
+  try {
+    const [session] = await db
+      .select()
+      .from(robinhoodSession)
+      .where(eq(robinhoodSession.userId, userId));
+
+    if (!session) {
+      return null;
+    }
+
+    // Check if session is expired
+    if (session.expiresAt < new Date()) {
+      // Delete expired session
+      await db
+        .delete(robinhoodSession)
+        .where(eq(robinhoodSession.userId, userId));
+      return null;
+    }
+
+    return session;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get Robinhood session"
+    );
+  }
+}
+
+/**
+ * Save or update Robinhood session for a user (upsert)
+ */
+export async function saveRobinhoodSession({
+  userId,
+  accessToken,
+  refreshToken,
+  accountId,
+  accountUrl,
+  expiresAt,
+}: {
+  userId: string;
+  accessToken: string;
+  refreshToken?: string;
+  accountId?: string;
+  accountUrl?: string;
+  expiresAt: Date;
+}) {
+  try {
+    const now = new Date();
+
+    // Try to update first, then insert if not exists
+    const [existing] = await db
+      .select({ userId: robinhoodSession.userId })
+      .from(robinhoodSession)
+      .where(eq(robinhoodSession.userId, userId));
+
+    if (existing) {
+      return await db
+        .update(robinhoodSession)
+        .set({
+          accessToken,
+          refreshToken,
+          accountId,
+          accountUrl,
+          expiresAt,
+          updatedAt: now,
+        })
+        .where(eq(robinhoodSession.userId, userId));
+    }
+
+    return await db.insert(robinhoodSession).values({
+      userId,
+      accessToken,
+      refreshToken,
+      accountId,
+      accountUrl,
+      expiresAt,
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to save Robinhood session"
+    );
+  }
+}
+
+/**
+ * Delete Robinhood session for a user
+ */
+export async function deleteRobinhoodSession({ userId }: { userId: string }) {
+  try {
+    return await db
+      .delete(robinhoodSession)
+      .where(eq(robinhoodSession.userId, userId));
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete Robinhood session"
     );
   }
 }

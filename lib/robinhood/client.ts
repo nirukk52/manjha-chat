@@ -7,28 +7,42 @@
  * Note: This uses unofficial APIs and may break if Robinhood changes their API.
  */
 
+import {
+  deleteRobinhoodSession,
+  getRobinhoodSession,
+  saveRobinhoodSession,
+} from "@/lib/db/queries";
 import type {
+  FormattedCryptoHolding,
+  FormattedOptionPosition,
+  FormattedOptionTrade,
   FormattedPortfolio,
   FormattedPosition,
   FormattedQuote,
   RobinhoodAccount,
   RobinhoodConnectionStatus,
+  RobinhoodCryptoHolding,
+  RobinhoodCryptoQuote,
   RobinhoodInstrument,
   RobinhoodLoginResult,
+  RobinhoodOptionInstrument,
+  RobinhoodOptionMarketData,
+  RobinhoodOptionOrder,
+  RobinhoodOptionPosition,
   RobinhoodPaginatedResponse,
-  RobinhoodPortfolio,
+  RobinhoodPhoenixAccount,
   RobinhoodPosition,
   RobinhoodQuote,
   RobinhoodSession,
 } from "./types";
 
 const ROBINHOOD_API_BASE = "https://api.robinhood.com";
+const ROBINHOOD_NUMMUS_BASE = "https://nummus.robinhood.com";
+const ROBINHOOD_PHOENIX_BASE = "https://phoenix.robinhood.com";
 const ROBINHOOD_CLIENT_ID = "c82SH0WZOsabOXGP2sxqcj34FxkvfnWRZBKlBjFS";
 
-// In-memory session store (keyed by user ID)
-const sessionStore = new Map<string, RobinhoodSession>();
-
-// In-memory device token store (persists device token during login flow)
+// In-memory device token store (persists device token during login flow only)
+// This is fine to be in-memory since it's only used during the login process
 const deviceTokenStore = new Map<string, string>();
 
 /**
@@ -60,39 +74,59 @@ export function resetDeviceToken(userId: string): void {
 }
 
 /**
- * Get stored session for a user
+ * Get stored session for a user from the database
+ * Returns the session if valid, undefined if expired or not found
  */
-export function getSession(userId: string): RobinhoodSession | undefined {
-  const session = sessionStore.get(userId);
-  if (session && session.expiresAt > Date.now()) {
-    return session;
+export async function getSession(
+  userId: string
+): Promise<RobinhoodSession | undefined> {
+  const dbSession = await getRobinhoodSession({ userId });
+
+  if (!dbSession) {
+    return undefined;
   }
-  // Session expired, remove it
-  if (session) {
-    sessionStore.delete(userId);
-  }
-  return undefined;
+
+  // Convert database session to RobinhoodSession type
+  return {
+    accessToken: dbSession.accessToken,
+    refreshToken: dbSession.refreshToken ?? undefined,
+    accountId: dbSession.accountId ?? undefined,
+    accountUrl: dbSession.accountUrl ?? undefined,
+    expiresAt: dbSession.expiresAt.getTime(),
+  };
 }
 
 /**
- * Store session for a user
+ * Store session for a user in the database
  */
-function setSession(userId: string, session: RobinhoodSession): void {
-  sessionStore.set(userId, session);
+async function setSession(
+  userId: string,
+  session: RobinhoodSession
+): Promise<void> {
+  await saveRobinhoodSession({
+    userId,
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+    accountId: session.accountId,
+    accountUrl: session.accountUrl,
+    expiresAt: new Date(session.expiresAt),
+  });
 }
 
 /**
- * Clear session for a user
+ * Clear session for a user from the database
  */
-export function clearSession(userId: string): void {
-  sessionStore.delete(userId);
+export async function clearSession(userId: string): Promise<void> {
+  await deleteRobinhoodSession({ userId });
 }
 
 /**
  * Check if user is connected to Robinhood
  */
-export function getConnectionStatus(userId: string): RobinhoodConnectionStatus {
-  const session = getSession(userId);
+export async function getConnectionStatus(
+  userId: string
+): Promise<RobinhoodConnectionStatus> {
+  const session = await getSession(userId);
   return {
     connected: !!session,
     expiresAt: session?.expiresAt,
@@ -158,14 +192,20 @@ async function pollPromptStatus(
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`Prompt status (attempt ${attempt + 1}):`, JSON.stringify(data, null, 2));
+        console.log(
+          `Prompt status (attempt ${attempt + 1}):`,
+          JSON.stringify(data, null, 2)
+        );
 
         if (data.challenge_status === "validated") {
           return { validated: true };
         }
       }
     } catch (error) {
-      console.error(`Prompt status poll error (attempt ${attempt + 1}):`, error);
+      console.error(
+        `Prompt status poll error (attempt ${attempt + 1}):`,
+        error
+      );
     }
   }
 
@@ -212,7 +252,10 @@ export async function login(
         );
 
         const challengeData = await challengeResponse.json();
-        console.log("Challenge response:", JSON.stringify(challengeData, null, 2));
+        console.log(
+          "Challenge response:",
+          JSON.stringify(challengeData, null, 2)
+        );
 
         // Check if challenge was validated
         if (challengeData.status === "validated" || !challengeData.challenge) {
@@ -258,7 +301,10 @@ export async function login(
 
     // Log the response for debugging (will show in server logs)
     console.log("Robinhood login response status:", response.status);
-    console.log("Robinhood login response data:", JSON.stringify(data, null, 2));
+    console.log(
+      "Robinhood login response data:",
+      JSON.stringify(data, null, 2)
+    );
 
     // Check if device verification is required (403 with verification_workflow)
     if (data.verification_workflow) {
@@ -283,7 +329,10 @@ export async function login(
         );
 
         const pathfinderData = await pathfinderResponse.json();
-        console.log("Pathfinder response:", JSON.stringify(pathfinderData, null, 2));
+        console.log(
+          "Pathfinder response:",
+          JSON.stringify(pathfinderData, null, 2)
+        );
 
         if (pathfinderData.id) {
           // Get the inquiry to find the challenge
@@ -298,7 +347,10 @@ export async function login(
           );
 
           const inquiryData = await inquiryResponse.json();
-          console.log("Inquiry response:", JSON.stringify(inquiryData, null, 2));
+          console.log(
+            "Inquiry response:",
+            JSON.stringify(inquiryData, null, 2)
+          );
 
           // Extract challenge info from the inquiry
           const sheriffChallenge =
@@ -408,11 +460,9 @@ export async function login(
 
       // Fetch account info to store account ID
       try {
-        const accounts = await apiRequest<RobinhoodPaginatedResponse<RobinhoodAccount>>(
-          "/accounts/",
-          {},
-          data.access_token
-        );
+        const accounts = await apiRequest<
+          RobinhoodPaginatedResponse<RobinhoodAccount>
+        >("/accounts/", {}, data.access_token);
         if (accounts.results.length > 0) {
           session.accountId = accounts.results[0].account_number;
           session.accountUrl = accounts.results[0].url;
@@ -421,7 +471,7 @@ export async function login(
         // Continue without account info
       }
 
-      setSession(userId, session);
+      await setSession(userId, session);
 
       // Clear device token after successful login
       clearDeviceToken(userId);
@@ -447,7 +497,7 @@ export async function login(
  * Logout from Robinhood
  */
 export async function logout(userId: string): Promise<boolean> {
-  const session = getSession(userId);
+  const session = await getSession(userId);
 
   if (session) {
     try {
@@ -467,7 +517,7 @@ export async function logout(userId: string): Promise<boolean> {
     }
   }
 
-  clearSession(userId);
+  await clearSession(userId);
   clearDeviceToken(userId);
   return true;
 }
@@ -478,44 +528,230 @@ export async function logout(userId: string): Promise<boolean> {
 export async function getAccount(
   userId: string
 ): Promise<RobinhoodAccount | null> {
-  const session = getSession(userId);
+  const session = await getSession(userId);
   if (!session) {
     throw new Error("Not connected to Robinhood. Please connect first.");
   }
 
-  const accounts = await apiRequest<RobinhoodPaginatedResponse<RobinhoodAccount>>(
-    "/accounts/",
-    {},
-    session.accessToken
-  );
+  const accounts = await apiRequest<
+    RobinhoodPaginatedResponse<RobinhoodAccount>
+  >("/accounts/", {}, session.accessToken);
 
   return accounts.results[0] || null;
 }
 
 /**
- * Get portfolio information
+ * Get portfolio information using Phoenix unified account API
+ * Falls back to manual calculation if Phoenix endpoint fails
  */
-export async function getPortfolio(userId: string): Promise<FormattedPortfolio> {
-  const session = getSession(userId);
+export async function getPortfolio(
+  userId: string
+): Promise<FormattedPortfolio> {
+  const session = await getSession(userId);
   if (!session) {
     throw new Error("Not connected to Robinhood. Please connect first.");
   }
+
+  // Try Phoenix unified account API for accurate totals
+  const phoenixAccount = await getPhoenixAccount(userId);
+
+  if (phoenixAccount) {
+    console.log("Phoenix account raw data:", {
+      total_equity: phoenixAccount.total_equity,
+      portfolio_equity: phoenixAccount.portfolio_equity,
+      portfolio_previous_close: phoenixAccount.portfolio_previous_close,
+      previous_close: phoenixAccount.previous_close,
+      total_previous_close: phoenixAccount.total_previous_close,
+      uninvested_cash: phoenixAccount.uninvested_cash,
+      account_buying_power: phoenixAccount.account_buying_power,
+      equities: phoenixAccount.equities,
+      crypto: phoenixAccount.crypto,
+    });
+
+    // Use total_equity for the complete portfolio value (includes stocks, crypto, options, cash)
+    const totalEquity = Number.parseFloat(phoenixAccount.total_equity);
+    const portfolioEquity = Number.parseFloat(phoenixAccount.portfolio_equity);
+
+    // previous_close is the total account previous close, portfolio_previous_close is just stocks
+    // Use total_previous_close if available, otherwise previous_close
+    const totalPreviousClose = Number.parseFloat(
+      phoenixAccount.total_previous_close ||
+        phoenixAccount.previous_close ||
+        phoenixAccount.portfolio_previous_close
+    );
+
+    const uninvestedCash = Number.parseFloat(phoenixAccount.uninvested_cash);
+    const buyingPower = Number.parseFloat(phoenixAccount.account_buying_power);
+    const cryptoBuyingPower = Number.parseFloat(
+      phoenixAccount.crypto_buying_power || "0"
+    );
+    const optionsBuyingPower = Number.parseFloat(
+      phoenixAccount.options_buying_power || "0"
+    );
+    const stocksEquity = Number.parseFloat(
+      phoenixAccount.equities?.equity || "0"
+    );
+    const cryptoEquity = Number.parseFloat(
+      phoenixAccount.crypto?.equity || "0"
+    );
+
+    // Calculate day change based on total equity vs total previous close
+    const dayChange = totalEquity - totalPreviousClose;
+    const dayChangePercent =
+      totalPreviousClose > 0 ? (dayChange / totalPreviousClose) * 100 : 0;
+
+    console.log("Calculated day change:", {
+      totalEquity,
+      totalPreviousClose,
+      dayChange,
+      dayChangePercent,
+    });
+
+    return {
+      totalValue: totalEquity,
+      equity: portfolioEquity,
+      cash: uninvestedCash,
+      buyingPower,
+      dayChange,
+      dayChangePercent,
+      cryptoBuyingPower,
+      optionsBuyingPower,
+      stocksEquity,
+      cryptoEquity,
+    };
+  }
+
+  // Fallback: Calculate manually from positions + crypto + options
+  console.log("Phoenix API failed, using fallback manual calculation");
 
   const account = await getAccount(userId);
   if (!account) {
     throw new Error("No account found");
   }
 
-  // Get portfolio data
-  const portfolioUrl = account.url.replace("/accounts/", "/portfolios/");
-  const portfolio = await apiRequest<RobinhoodPortfolio>(
-    portfolioUrl.replace(ROBINHOOD_API_BASE, ""),
-    {},
-    session.accessToken
+  const cash = Number.parseFloat(account.cash);
+  const buyingPower = Number.parseFloat(account.buying_power);
+
+  // Try to get portfolio equity directly from portfolio endpoint first
+  let portfolioEquity: number | null = null;
+  let portfolioPreviousClose: number | null = null;
+  try {
+    const portfolio = await apiRequest<{
+      equity: string;
+      equity_previous_close: string;
+      extended_hours_equity: string;
+      market_value: string;
+    }>(
+      `${account.portfolio}`.replace(ROBINHOOD_API_BASE, ""),
+      {},
+      session.accessToken
+    );
+    portfolioEquity = Number.parseFloat(portfolio.equity);
+    portfolioPreviousClose = Number.parseFloat(portfolio.equity_previous_close);
+    console.log(
+      `Portfolio endpoint: equity=$${portfolioEquity}, previousClose=$${portfolioPreviousClose}`
+    );
+  } catch (error) {
+    console.error("Failed to get portfolio equity:", error);
+  }
+
+  // Fetch stock positions with real-time quotes (with pagination)
+  let allPositions: RobinhoodPosition[] = [];
+  let nextUrl: string | null = "/positions/?nonzero=true";
+
+  while (nextUrl) {
+    const positions = await apiRequest<
+      RobinhoodPaginatedResponse<RobinhoodPosition>
+    >(nextUrl.replace(ROBINHOOD_API_BASE, ""), {}, session.accessToken);
+    allPositions = [...allPositions, ...positions.results];
+    nextUrl = positions.next;
+  }
+
+  console.log(`Found ${allPositions.length} stock positions`);
+
+  let totalStockValue = 0;
+  let totalStockPreviousClose = 0;
+
+  for (const position of allPositions) {
+    const quantity = Number.parseFloat(position.quantity);
+    if (quantity === 0) {
+      continue;
+    }
+
+    try {
+      const instrument = await apiRequest<RobinhoodInstrument>(
+        position.instrument.replace(ROBINHOOD_API_BASE, ""),
+        {},
+        session.accessToken
+      );
+
+      const quote = await apiRequest<RobinhoodQuote>(
+        `/quotes/${instrument.symbol}/`,
+        {},
+        session.accessToken
+      );
+
+      // robin_stocks logic: use last_extended_hours_trade_price if available
+      // This gives the most recent price whether in regular or extended hours
+      const lastTradePrice = Number.parseFloat(quote.last_trade_price);
+      const extendedHoursPrice = quote.last_extended_hours_trade_price
+        ? Number.parseFloat(quote.last_extended_hours_trade_price)
+        : null;
+
+      // Use extended hours price if available, otherwise regular price
+      const currentPrice = extendedHoursPrice ?? lastTradePrice;
+      const previousClose = Number.parseFloat(quote.previous_close);
+      const positionValue = quantity * currentPrice;
+
+      console.log(
+        `Stock: ${instrument.symbol} qty=${quantity} price=$${currentPrice} (ext=${extendedHoursPrice}, reg=${lastTradePrice}) value=$${positionValue}`
+      );
+
+      totalStockValue += positionValue;
+      totalStockPreviousClose += quantity * previousClose;
+    } catch (error) {
+      console.error("Failed to get quote for position:", error);
+    }
+  }
+
+  // Fetch crypto holdings value
+  let totalCryptoValue = 0;
+  try {
+    const cryptoHoldings = await getCryptoHoldings(userId);
+    console.log(`Found ${cryptoHoldings.length} crypto holdings`);
+    for (const holding of cryptoHoldings) {
+      console.log(`Crypto: ${holding.symbol} = $${holding.marketValue}`);
+      totalCryptoValue += holding.marketValue;
+    }
+  } catch (error) {
+    console.error("Crypto fetch error:", error);
+    // Crypto may not be enabled for all accounts
+  }
+
+  // Fetch options positions value
+  let totalOptionsValue = 0;
+  try {
+    const optionsPositions = await getOptionsPositions(userId);
+    console.log(`Found ${optionsPositions.length} options positions`);
+    for (const option of optionsPositions) {
+      console.log(
+        `Option: ${option.symbol} ${option.optionType} = $${option.marketValue}`
+      );
+      totalOptionsValue += option.marketValue;
+    }
+  } catch (error) {
+    console.error("Options fetch error:", error);
+    // Options may not be enabled for all accounts
+  }
+
+  console.log(
+    `Portfolio breakdown: stocks=$${totalStockValue}, crypto=$${totalCryptoValue}, options=$${totalOptionsValue}, cash=$${cash}`
   );
 
-  const equity = Number.parseFloat(portfolio.equity);
-  const equityPreviousClose = Number.parseFloat(portfolio.equity_previous_close);
+  const totalMarketValue =
+    totalStockValue + totalCryptoValue + totalOptionsValue;
+  const equity = cash + totalMarketValue;
+  const equityPreviousClose = cash + totalStockPreviousClose;
   const dayChange = equity - equityPreviousClose;
   const dayChangePercent =
     equityPreviousClose > 0 ? (dayChange / equityPreviousClose) * 100 : 0;
@@ -523,33 +759,37 @@ export async function getPortfolio(userId: string): Promise<FormattedPortfolio> 
   return {
     totalValue: equity,
     equity,
-    cash: Number.parseFloat(account.cash),
-    buyingPower: Number.parseFloat(account.buying_power),
+    cash,
+    buyingPower,
     dayChange,
     dayChangePercent,
+    stocksEquity: totalStockValue,
+    cryptoEquity: totalCryptoValue,
   };
 }
 
 /**
  * Get all positions
  */
-export async function getPositions(userId: string): Promise<FormattedPosition[]> {
-  const session = getSession(userId);
+export async function getPositions(
+  userId: string
+): Promise<FormattedPosition[]> {
+  const session = await getSession(userId);
   if (!session) {
     throw new Error("Not connected to Robinhood. Please connect first.");
   }
 
-  const positions = await apiRequest<RobinhoodPaginatedResponse<RobinhoodPosition>>(
-    "/positions/?nonzero=true",
-    {},
-    session.accessToken
-  );
+  const positions = await apiRequest<
+    RobinhoodPaginatedResponse<RobinhoodPosition>
+  >("/positions/?nonzero=true", {}, session.accessToken);
 
   const formattedPositions: FormattedPosition[] = [];
 
   for (const position of positions.results) {
     const quantity = Number.parseFloat(position.quantity);
-    if (quantity === 0) continue;
+    if (quantity === 0) {
+      continue;
+    }
 
     // Get instrument details
     let symbol = "UNKNOWN";
@@ -580,7 +820,8 @@ export async function getPositions(userId: string): Promise<FormattedPosition[]>
     const marketValue = quantity * currentPrice;
     const totalCost = quantity * averageCost;
     const totalGainLoss = marketValue - totalCost;
-    const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+    const totalGainLossPercent =
+      totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
     formattedPositions.push({
       symbol,
@@ -604,7 +845,7 @@ export async function getQuote(
   symbol: string,
   userId?: string
 ): Promise<FormattedQuote> {
-  const session = userId ? getSession(userId) : undefined;
+  const session = userId ? await getSession(userId) : undefined;
 
   // Quotes can be fetched without auth for basic data
   const quote = await apiRequest<RobinhoodQuote>(
@@ -646,4 +887,416 @@ function generateDeviceToken(): string {
     }
   }
   return token;
+}
+
+/**
+ * Make authenticated API request to Nummus (crypto) API
+ */
+async function nummusApiRequest<T>(
+  endpoint: string,
+  accessToken: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+    ...(options.headers as Record<string, string>),
+  };
+
+  const response = await fetch(`${ROBINHOOD_NUMMUS_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Robinhood Nummus API error: ${response.status} - ${errorText || response.statusText}`
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Make authenticated API request to Phoenix (unified account) API
+ * This endpoint returns aggregated portfolio data across all asset types
+ */
+async function phoenixApiRequest<T>(
+  endpoint: string,
+  accessToken: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Accept: "*/*",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept-Language": "en-US,en;q=0.9",
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+    "X-Robinhood-API-Version": "1.431.4",
+    ...(options.headers as Record<string, string>),
+  };
+
+  const response = await fetch(`${ROBINHOOD_PHOENIX_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Robinhood Phoenix API error: ${response.status} - ${errorText || response.statusText}`
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * Get unified account data from Phoenix API
+ * Returns aggregated portfolio value including stocks, crypto, and options
+ */
+export async function getPhoenixAccount(
+  userId: string
+): Promise<RobinhoodPhoenixAccount | null> {
+  const session = await getSession(userId);
+  if (!session) {
+    throw new Error("Not connected to Robinhood. Please connect first.");
+  }
+
+  try {
+    return await phoenixApiRequest<RobinhoodPhoenixAccount>(
+      "/accounts/unified",
+      session.accessToken
+    );
+  } catch {
+    // Phoenix endpoint may not be available, return null to trigger fallback
+    return null;
+  }
+}
+
+/**
+ * Get crypto currency pairs to map symbols to trading pair IDs
+ * The trading pair ID is needed for quotes, not the currency ID
+ */
+async function getCryptoPairId(
+  symbol: string,
+  accessToken: string
+): Promise<string | null> {
+  try {
+    // Use the correct endpoint on nummus.robinhood.com
+    const pairs = await nummusApiRequest<{
+      results: Array<{
+        id: string;
+        symbol: string;
+        asset_currency: { code: string };
+      }>;
+    }>("/currency_pairs/", accessToken);
+
+    const pair = pairs.results.find(
+      (p) => p.asset_currency.code === symbol || p.symbol === `${symbol}-USD`
+    );
+    console.log(`Found crypto pair for ${symbol}:`, pair?.id, pair?.symbol);
+    return pair?.id || null;
+  } catch (error) {
+    console.error(`Failed to get crypto pair for ${symbol}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Get crypto holdings from Robinhood
+ * Uses the Nummus API for cryptocurrency data
+ */
+export async function getCryptoHoldings(
+  userId: string
+): Promise<FormattedCryptoHolding[]> {
+  const session = await getSession(userId);
+  if (!session) {
+    throw new Error("Not connected to Robinhood. Please connect first.");
+  }
+
+  const holdings = await nummusApiRequest<{
+    results: RobinhoodCryptoHolding[];
+  }>("/holdings/", session.accessToken);
+
+  const formattedHoldings: FormattedCryptoHolding[] = [];
+
+  for (const holding of holdings.results) {
+    const quantity = Number.parseFloat(holding.quantity);
+    if (quantity === 0) {
+      continue;
+    }
+
+    const symbol = holding.currency.code;
+    const name = holding.currency.name;
+
+    console.log(
+      `Processing crypto holding: ${symbol} (${name}), quantity=${quantity}`
+    );
+
+    // Calculate average cost from cost bases
+    let totalCost = 0;
+    let totalQuantity = 0;
+    for (const costBasis of holding.cost_bases) {
+      totalCost += Number.parseFloat(costBasis.direct_cost_basis);
+      totalQuantity += Number.parseFloat(costBasis.direct_quantity);
+    }
+    const averageCost = totalQuantity > 0 ? totalCost / totalQuantity : 0;
+
+    // Get current price - need to use the trading pair ID, not currency ID
+    let currentPrice = 0;
+    try {
+      // First get the trading pair ID for this crypto
+      const pairId = await getCryptoPairId(symbol, session.accessToken);
+      console.log(`Crypto pair ID for ${symbol}: ${pairId}`);
+
+      if (pairId) {
+        const quote = await apiRequest<RobinhoodCryptoQuote>(
+          `/marketdata/forex/quotes/${pairId}/`,
+          {},
+          session.accessToken
+        );
+        currentPrice = Number.parseFloat(quote.mark_price);
+        console.log(`Crypto quote for ${symbol}: price=$${currentPrice}`);
+      }
+    } catch (error) {
+      console.error(`Failed to get crypto quote for ${symbol}:`, error);
+    }
+
+    const marketValue = quantity * currentPrice;
+    const totalGainLoss = marketValue - totalCost;
+    const totalGainLossPercent =
+      totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+
+    formattedHoldings.push({
+      symbol,
+      name,
+      quantity,
+      averageCost,
+      currentPrice,
+      marketValue,
+      totalGainLoss,
+      totalGainLossPercent,
+    });
+  }
+
+  return formattedHoldings;
+}
+
+/**
+ * Get options positions from Robinhood
+ */
+export async function getOptionsPositions(
+  userId: string
+): Promise<FormattedOptionPosition[]> {
+  const session = await getSession(userId);
+  if (!session) {
+    throw new Error("Not connected to Robinhood. Please connect first.");
+  }
+
+  const positions = await apiRequest<
+    RobinhoodPaginatedResponse<RobinhoodOptionPosition>
+  >("/options/positions/?nonzero=true", {}, session.accessToken);
+
+  const formattedPositions: FormattedOptionPosition[] = [];
+
+  for (const position of positions.results) {
+    const quantity = Number.parseFloat(position.quantity);
+    if (quantity === 0) {
+      continue;
+    }
+
+    // Get option instrument details
+    let symbol = position.chain_symbol;
+    let optionType: "call" | "put" = "call";
+    let strikePrice = 0;
+    let expirationDate = "";
+    let currentPrice = 0;
+
+    try {
+      // Fetch option instrument details
+      const instrument = await apiRequest<RobinhoodOptionInstrument>(
+        position.option.replace(ROBINHOOD_API_BASE, ""),
+        {},
+        session.accessToken
+      );
+      symbol = instrument.chain_symbol;
+      optionType = instrument.type;
+      strikePrice = Number.parseFloat(instrument.strike_price);
+      expirationDate = instrument.expiration_date;
+
+      // Get current market data for the option
+      try {
+        const marketData = await apiRequest<RobinhoodOptionMarketData>(
+          `/marketdata/options/?instruments=${position.option}`,
+          {},
+          session.accessToken
+        );
+        currentPrice = Number.parseFloat(marketData.mark_price);
+      } catch {
+        // Try to get from the adjusted mark price endpoint
+        try {
+          const marketDataArray = await apiRequest<{
+            results: RobinhoodOptionMarketData[];
+          }>(
+            `/marketdata/options/?instruments=${position.option}`,
+            {},
+            session.accessToken
+          );
+          if (marketDataArray.results.length > 0) {
+            currentPrice = Number.parseFloat(
+              marketDataArray.results[0].mark_price
+            );
+          }
+        } catch {
+          // Skip if market data fetch fails
+        }
+      }
+    } catch {
+      // Continue with defaults if instrument fetch fails
+    }
+
+    const averageCost = Number.parseFloat(position.average_price);
+    const multiplier =
+      Number.parseFloat(position.trade_value_multiplier) || 100;
+    const marketValue = quantity * currentPrice * multiplier;
+    const totalCost = quantity * averageCost * multiplier;
+    const totalGainLoss =
+      position.type === "long"
+        ? marketValue - totalCost
+        : totalCost - marketValue;
+    const totalGainLossPercent =
+      totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+
+    formattedPositions.push({
+      symbol,
+      optionType,
+      strikePrice,
+      expirationDate,
+      quantity,
+      averageCost,
+      currentPrice,
+      marketValue,
+      totalGainLoss,
+      totalGainLossPercent,
+      positionType: position.type,
+    });
+  }
+
+  return formattedPositions;
+}
+
+/**
+ * Get today's options orders from Robinhood
+ * Returns all option orders placed today, including filled, pending, and cancelled
+ */
+export async function getTodayOptionsOrders(
+  userId: string
+): Promise<FormattedOptionTrade[]> {
+  const session = await getSession(userId);
+  if (!session) {
+    throw new Error("Not connected to Robinhood. Please connect first.");
+  }
+
+  // Get today's date in YYYY-MM-DD format (Eastern Time for market hours)
+  const now = new Date();
+  const easternTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/New_York" })
+  );
+  const todayStr = easternTime.toISOString().split("T")[0];
+
+  // Fetch all option orders with pagination
+  let allOrders: RobinhoodOptionOrder[] = [];
+  let nextUrl: string | null = "/options/orders/";
+
+  while (nextUrl) {
+    const orders = await apiRequest<
+      RobinhoodPaginatedResponse<RobinhoodOptionOrder>
+    >(nextUrl.replace(ROBINHOOD_API_BASE, ""), {}, session.accessToken);
+    allOrders = [...allOrders, ...orders.results];
+    nextUrl = orders.next;
+
+    // Stop pagination if we've gone past today's orders (they're in reverse chronological order)
+    const lastOrder = orders.results.at(-1);
+    if (lastOrder) {
+      const orderDate = lastOrder.created_at.split("T")[0];
+      if (orderDate < todayStr) {
+        break;
+      }
+    }
+  }
+
+  // Filter to only today's orders
+  const todayOrders = allOrders.filter((order) => {
+    const orderDate = order.created_at.split("T")[0];
+    return orderDate === todayStr;
+  });
+
+  const formattedTrades: FormattedOptionTrade[] = [];
+
+  // Cache for option instrument details to avoid duplicate fetches
+  const instrumentCache = new Map<string, RobinhoodOptionInstrument>();
+
+  for (const order of todayOrders) {
+    // Process each leg of the order
+    for (const leg of order.legs) {
+      // Get option instrument details
+      let instrument: RobinhoodOptionInstrument | undefined =
+        instrumentCache.get(leg.option);
+
+      if (!instrument) {
+        try {
+          instrument = await apiRequest<RobinhoodOptionInstrument>(
+            leg.option.replace(ROBINHOOD_API_BASE, ""),
+            {},
+            session.accessToken
+          );
+          instrumentCache.set(leg.option, instrument);
+        } catch {
+          // Skip if instrument fetch fails
+          continue;
+        }
+      }
+
+      const quantity =
+        Number.parseFloat(order.processed_quantity) * leg.ratio_quantity;
+      const price = Number.parseFloat(order.price);
+      const multiplier = 100; // Standard options multiplier
+      const totalValue = quantity * price * multiplier;
+
+      // Determine execution time from executions or fall back to order update time
+      let executedAt = order.updated_at;
+      if (leg.executions.length > 0) {
+        // Use the most recent execution timestamp
+        const lastExecution = leg.executions.at(-1);
+        if (lastExecution) {
+          executedAt = lastExecution.timestamp;
+        }
+      }
+
+      formattedTrades.push({
+        symbol: instrument.chain_symbol,
+        optionType: instrument.type,
+        strikePrice: Number.parseFloat(instrument.strike_price),
+        expirationDate: instrument.expiration_date,
+        side: leg.side,
+        positionEffect: leg.position_effect,
+        quantity,
+        price,
+        totalValue,
+        state: order.state,
+        executedAt,
+        orderId: order.id,
+      });
+    }
+  }
+
+  // Sort by execution time, most recent first
+  formattedTrades.sort(
+    (a, b) => new Date(b.executedAt).getTime() - new Date(a.executedAt).getTime()
+  );
+
+  return formattedTrades;
 }

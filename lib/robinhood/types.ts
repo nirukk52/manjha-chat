@@ -37,7 +37,7 @@ export interface RobinhoodLoginResult {
 // Session types
 export interface RobinhoodSession {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   expiresAt: number;
   accountId?: string;
   accountUrl?: string;
@@ -257,6 +257,10 @@ export interface FormattedPortfolio {
   buyingPower: number;
   dayChange: number;
   dayChangePercent: number;
+  cryptoBuyingPower?: number;
+  optionsBuyingPower?: number;
+  stocksEquity?: number;
+  cryptoEquity?: number;
 }
 
 export interface FormattedPosition {
@@ -288,4 +292,267 @@ export interface FormattedQuote {
 export interface RobinhoodConnectionStatus {
   connected: boolean;
   expiresAt?: number;
+}
+
+/**
+ * Phoenix unified account response
+ * Returns aggregated data across all asset types (stocks, crypto, options)
+ */
+export interface RobinhoodPhoenixAccount {
+  account_buying_power: string;
+  cash_available_from_instant_deposits: string;
+  cash_held_for_currency_orders: string;
+  cash_held_for_dividends: string;
+  cash_held_for_equity_orders: string;
+  cash_held_for_options_collateral: string;
+  cash_held_for_orders: string;
+  crypto?: {
+    equity: string;
+    equity_for_display: string;
+    equity_previous_close?: string;
+  };
+  crypto_buying_power?: string;
+  equities?: {
+    equity: string;
+    equity_for_display: string;
+    equity_previous_close?: string;
+  };
+  extended_hours_portfolio_equity: string;
+  instant_allocated: string;
+  levered_amount: string;
+  near_margin_call: boolean;
+  options_buying_power?: string;
+  portfolio_equity: string;
+  portfolio_previous_close: string;
+  previous_close: string;
+  regular_hours_portfolio_equity: string;
+  total_equity: string;
+  total_extended_hours_equity: string;
+  total_extended_hours_market_value: string;
+  total_market_value: string;
+  total_regular_hours_equity: string;
+  total_regular_hours_market_value: string;
+  total_previous_close?: string;
+  uninvested_cash: string;
+  withdrawable_cash: string;
+}
+
+// Crypto types (from nummus.robinhood.com API)
+export interface RobinhoodCryptoHolding {
+  account_id: string;
+  cost_bases: RobinhoodCryptoCostBasis[];
+  created_at: string;
+  currency: RobinhoodCryptoCurrency;
+  id: string;
+  quantity: string;
+  quantity_available: string;
+  quantity_held_for_buy: string;
+  quantity_held_for_sell: string;
+  updated_at: string;
+}
+
+export interface RobinhoodCryptoCostBasis {
+  currency_id: string;
+  direct_cost_basis: string;
+  direct_quantity: string;
+  id: string;
+  intraday_cost_basis: string;
+  intraday_quantity: string;
+  marked_cost_basis: string;
+  marked_quantity: string;
+}
+
+export interface RobinhoodCryptoCurrency {
+  brand_color: string;
+  code: string;
+  id: string;
+  increment: string;
+  name: string;
+  type: string;
+}
+
+export interface RobinhoodCryptoQuote {
+  ask_price: string;
+  bid_price: string;
+  high_price: string;
+  id: string;
+  low_price: string;
+  mark_price: string;
+  open_price: string;
+  symbol: string;
+  volume: string;
+}
+
+export interface FormattedCryptoHolding {
+  symbol: string;
+  name: string;
+  quantity: number;
+  averageCost: number;
+  currentPrice: number;
+  marketValue: number;
+  totalGainLoss: number;
+  totalGainLossPercent: number;
+}
+
+// Options types
+export interface RobinhoodOptionPosition {
+  account: string;
+  average_price: string;
+  chain_id: string;
+  chain_symbol: string;
+  created_at: string;
+  id: string;
+  intraday_average_open_price: string;
+  intraday_direction: string;
+  intraday_quantity: string;
+  option: string;
+  option_id: string;
+  pending_assignment_quantity: string;
+  pending_buy_quantity: string;
+  pending_exercise_quantity: string;
+  pending_expiration_quantity: string;
+  pending_expired_quantity: string;
+  pending_sell_quantity: string;
+  quantity: string;
+  trade_value_multiplier: string;
+  type: "long" | "short";
+  updated_at: string;
+}
+
+export interface RobinhoodOptionInstrument {
+  chain_id: string;
+  chain_symbol: string;
+  created_at: string;
+  expiration_date: string;
+  id: string;
+  issue_date: string;
+  min_ticks: {
+    above_tick: string;
+    below_tick: string;
+    cutoff_price: string;
+  };
+  rhs_tradability: string;
+  state: string;
+  strike_price: string;
+  tradability: string;
+  type: "call" | "put";
+  updated_at: string;
+  url: string;
+  sellout_datetime: string;
+  long_strategy_code: string;
+  short_strategy_code: string;
+}
+
+export interface RobinhoodOptionMarketData {
+  adjusted_mark_price: string;
+  ask_price: string;
+  ask_size: number;
+  bid_price: string;
+  bid_size: number;
+  break_even_price: string;
+  chance_of_profit_long: string;
+  chance_of_profit_short: string;
+  delta: string;
+  gamma: string;
+  high_price: string;
+  implied_volatility: string;
+  instrument: string;
+  instrument_id: string;
+  last_trade_price: string;
+  last_trade_size: number;
+  low_price: string;
+  mark_price: string;
+  open_interest: number;
+  previous_close_date: string;
+  previous_close_price: string;
+  rho: string;
+  theta: string;
+  updated_at: string;
+  vega: string;
+  volume: number;
+}
+
+export interface FormattedOptionPosition {
+  symbol: string;
+  optionType: "call" | "put";
+  strikePrice: number;
+  expirationDate: string;
+  quantity: number;
+  averageCost: number;
+  currentPrice: number;
+  marketValue: number;
+  totalGainLoss: number;
+  totalGainLossPercent: number;
+  positionType: "long" | "short";
+}
+
+/**
+ * Robinhood option order response from /options/orders/ endpoint
+ * Represents a single options trade/order
+ */
+export interface RobinhoodOptionOrder {
+  id: string;
+  ref_id: string;
+  account: string;
+  direction: "debit" | "credit";
+  legs: RobinhoodOptionOrderLeg[];
+  premium: string;
+  processed_premium: string;
+  price: string;
+  processed_quantity: string;
+  quantity: string;
+  pending_quantity: string;
+  canceled_quantity: string;
+  state: "filled" | "confirmed" | "cancelled" | "pending" | "queued" | "rejected";
+  type: "limit" | "market";
+  time_in_force: "gfd" | "gtc" | "ioc" | "opg";
+  trigger: "immediate" | "stop";
+  chain_id: string;
+  chain_symbol: string;
+  response_category: string | null;
+  opening_strategy: string | null;
+  closing_strategy: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * A single leg of an options order (for spreads, there can be multiple legs)
+ */
+export interface RobinhoodOptionOrderLeg {
+  id: string;
+  option: string;
+  position_effect: "open" | "close";
+  ratio_quantity: number;
+  side: "buy" | "sell";
+  executions: RobinhoodOptionExecution[];
+}
+
+/**
+ * Execution details for an options order leg
+ */
+export interface RobinhoodOptionExecution {
+  id: string;
+  price: string;
+  quantity: string;
+  settlement_date: string;
+  timestamp: string;
+}
+
+/**
+ * Formatted options trade for display in the UI
+ */
+export interface FormattedOptionTrade {
+  symbol: string;
+  optionType: "call" | "put";
+  strikePrice: number;
+  expirationDate: string;
+  side: "buy" | "sell";
+  positionEffect: "open" | "close";
+  quantity: number;
+  price: number;
+  totalValue: number;
+  state: string;
+  executedAt: string;
+  orderId: string;
 }
