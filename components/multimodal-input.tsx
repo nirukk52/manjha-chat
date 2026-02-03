@@ -68,6 +68,7 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  robinhoodConnected,
 }: {
   chatId: string;
   input: string;
@@ -83,6 +84,7 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  robinhoodConnected?: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -302,6 +304,7 @@ function PureMultimodalInput({
         uploadQueue.length === 0 && (
           <SuggestedActions
             chatId={chatId}
+            robinhoodConnected={robinhoodConnected}
             selectedVisibilityType={selectedVisibilityType}
             sendMessage={sendMessage}
           />
@@ -424,6 +427,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+      return false;
+    }
+    if (prevProps.robinhoodConnected !== nextProps.robinhoodConnected) {
       return false;
     }
 

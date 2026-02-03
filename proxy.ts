@@ -21,6 +21,7 @@ export async function proxy(request: NextRequest) {
     req: request,
     secret: process.env.AUTH_SECRET,
     secureCookie: !isDevelopmentEnvironment,
+    cookieName: "manjha-chat.session-token",
   });
 
   if (!token) {

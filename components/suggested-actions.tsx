@@ -11,6 +11,7 @@ type SuggestedActionsProps = {
   chatId: string;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   selectedVisibilityType: VisibilityType;
+  robinhoodConnected?: boolean;
 };
 
 interface RobinhoodStatus {
@@ -22,11 +23,12 @@ interface RobinhoodStatus {
   };
 }
 
-function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
+function PureSuggestedActions({ chatId, sendMessage, robinhoodConnected }: SuggestedActionsProps) {
   const [robinhoodStatus, setRobinhoodStatus] = useState<RobinhoodStatus>({
     connected: false,
   });
 
+  // Refetch Robinhood status on mount and when robinhoodConnected prop changes
   useEffect(() => {
     async function checkRobinhoodStatus() {
       try {
@@ -50,6 +52,8 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
           } else {
             setRobinhoodStatus({ connected: true });
           }
+        } else {
+          setRobinhoodStatus({ connected: false });
         }
       } catch {
         // Silently fail - will show default action
@@ -57,7 +61,7 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
     }
 
     checkRobinhoodStatus();
-  }, []);
+  }, [robinhoodConnected]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {
@@ -142,6 +146,9 @@ export const SuggestedActions = memo(
       return false;
     }
     if (prevProps.selectedVisibilityType !== nextProps.selectedVisibilityType) {
+      return false;
+    }
+    if (prevProps.robinhoodConnected !== nextProps.robinhoodConnected) {
       return false;
     }
 

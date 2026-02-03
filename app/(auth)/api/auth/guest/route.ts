@@ -3,6 +3,10 @@ import { getToken } from "next-auth/jwt";
 import { signIn } from "@/app/(auth)/auth";
 import { isDevelopmentEnvironment } from "@/lib/constants";
 
+/**
+ * Guest authentication route - creates a guest session if no valid session exists.
+ * Uses custom cookie name to avoid conflicts with other localhost projects.
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const redirectUrl = searchParams.get("redirectUrl") || "/";
@@ -11,6 +15,7 @@ export async function GET(request: Request) {
     req: request,
     secret: process.env.AUTH_SECRET,
     secureCookie: !isDevelopmentEnvironment,
+    cookieName: "manjha-chat.session-token",
   });
 
   if (token) {

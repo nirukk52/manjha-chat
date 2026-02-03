@@ -193,6 +193,23 @@ export function Chat({
   // Track if Robinhood is connected (updated after successful login)
   const [robinhoodConnected, setRobinhoodConnected] = useState(false);
 
+  // Check Robinhood connection status on mount to persist state across page refreshes
+  useEffect(() => {
+    async function checkRobinhoodStatus() {
+      try {
+        const response = await fetch("/api/robinhood");
+        const status = await response.json();
+        if (status.connected) {
+          setRobinhoodConnected(true);
+        }
+      } catch {
+        // Silently fail - user can reconnect if needed
+      }
+    }
+
+    checkRobinhoodStatus();
+  }, []);
+
   // Watch for Robinhood connect tool responses that should trigger the login popup
   useEffect(() => {
     if (robinhoodLoginOpened) return; // Don't re-open if already opened
@@ -262,6 +279,7 @@ export function Chat({
               input={input}
               messages={messages}
               onModelChange={setCurrentModelId}
+              robinhoodConnected={robinhoodConnected}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
