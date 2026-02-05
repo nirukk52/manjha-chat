@@ -30,16 +30,20 @@ import type {
   PlaidExchangeResult,
 } from "./types";
 
+// Determine which secret to use based on environment
+const plaidEnv = (process.env.PLAID_ENV as keyof typeof PlaidEnvironments) ?? "sandbox";
+const plaidSecret =
+  plaidEnv === "production"
+    ? process.env.PLAID_PRODUCTION_SECRET
+    : process.env.PLAID_SANDBOX_SECRET;
+
 // Initialize Plaid client configuration
 const configuration = new Configuration({
-  basePath:
-    PlaidEnvironments[
-      (process.env.PLAID_ENV as keyof typeof PlaidEnvironments) ?? "sandbox"
-    ],
+  basePath: PlaidEnvironments[plaidEnv],
   baseOptions: {
     headers: {
       "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID,
-      "PLAID-SECRET": process.env.PLAID_SECRET,
+      "PLAID-SECRET": plaidSecret,
     },
   },
 });
@@ -54,14 +58,20 @@ export async function createLinkToken(
   userId: string,
   redirectUri?: string
 ): Promise<LinkTokenCreateResponse> {
-  const response = await plaidClient.linkTokenCreate({
+  const request: Parameters<typeof plaidClient.linkTokenCreate>[0] = {
     user: { client_user_id: userId },
     client_name: "Manjha Chat",
     products: [Products.Investments],
     country_codes: [CountryCode.Us],
     language: "en",
-    redirect_uri: redirectUri,
-  });
+  };
+
+  // Only include redirect_uri if provided (required for OAuth institutions)
+  if (redirectUri) {
+    request.redirect_uri = redirectUri;
+  }
+
+  const response = await plaidClient.linkTokenCreate(request);
 
   return response.data;
 }

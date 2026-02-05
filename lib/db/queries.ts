@@ -24,6 +24,8 @@ import {
   type DBMessage,
   document,
   message,
+  type PlaidItem,
+  plaidItem,
   type RobinhoodSession,
   robinhoodSession,
   type Suggestion,
@@ -710,6 +712,110 @@ export async function deleteRobinhoodSession({ userId }: { userId: string }) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to delete Robinhood session"
+    );
+  }
+}
+
+/**
+ * Get all Plaid items for a user
+ */
+export async function getPlaidItems({
+  userId,
+}: {
+  userId: string;
+}): Promise<PlaidItem[]> {
+  try {
+    return await db
+      .select()
+      .from(plaidItem)
+      .where(eq(plaidItem.userId, userId))
+      .orderBy(desc(plaidItem.createdAt));
+  } catch (_error) {
+    throw new ChatSDKError("bad_request:database", "Failed to get Plaid items");
+  }
+}
+
+/**
+ * Get a specific Plaid item by item ID
+ */
+export async function getPlaidItemByItemId({
+  itemId,
+}: {
+  itemId: string;
+}): Promise<PlaidItem | null> {
+  try {
+    const [item] = await db
+      .select()
+      .from(plaidItem)
+      .where(eq(plaidItem.itemId, itemId));
+    return item ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get Plaid item by item ID"
+    );
+  }
+}
+
+/**
+ * Save a new Plaid item for a user
+ */
+export async function savePlaidItem({
+  userId,
+  accessToken,
+  itemId,
+  institutionId,
+  institutionName,
+}: {
+  userId: string;
+  accessToken: string;
+  itemId: string;
+  institutionId?: string;
+  institutionName?: string;
+}) {
+  try {
+    const now = new Date();
+    return await db
+      .insert(plaidItem)
+      .values({
+        userId,
+        accessToken,
+        itemId,
+        institutionId,
+        institutionName,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+  } catch (_error) {
+    throw new ChatSDKError("bad_request:database", "Failed to save Plaid item");
+  }
+}
+
+/**
+ * Delete a Plaid item by item ID
+ */
+export async function deletePlaidItem({ itemId }: { itemId: string }) {
+  try {
+    return await db.delete(plaidItem).where(eq(plaidItem.itemId, itemId));
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete Plaid item"
+    );
+  }
+}
+
+/**
+ * Delete all Plaid items for a user
+ */
+export async function deleteAllPlaidItems({ userId }: { userId: string }) {
+  try {
+    return await db.delete(plaidItem).where(eq(plaidItem.userId, userId));
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete all Plaid items"
     );
   }
 }

@@ -188,3 +188,22 @@ export const robinhoodSession = pgTable("RobinhoodSession", {
 });
 
 export type RobinhoodSession = InferSelectModel<typeof robinhoodSession>;
+
+/**
+ * Stores Plaid Items (connected brokerage accounts) for users.
+ * Each item represents a connection to a financial institution via Plaid.
+ */
+export const plaidItem = pgTable("PlaidItem", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  accessToken: text("accessToken").notNull(),
+  itemId: text("itemId").notNull(),
+  institutionId: text("institutionId"),
+  institutionName: text("institutionName"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type PlaidItem = InferSelectModel<typeof plaidItem>;

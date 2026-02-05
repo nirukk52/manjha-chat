@@ -28,6 +28,7 @@ import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { PlaidLinkDialog } from "./plaid-link-dialog";
 import { RobinhoodLoginDialog } from "./robinhood-login-dialog";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
@@ -72,6 +73,7 @@ export function Chat({
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [showRobinhoodLogin, setShowRobinhoodLogin] = useState(false);
+  const [showPlaidLink, setShowPlaidLink] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
 
@@ -193,26 +195,42 @@ export function Chat({
   // Track if Robinhood is connected (updated after successful login)
   const [robinhoodConnected, setRobinhoodConnected] = useState(false);
 
-  // Check Robinhood connection status on mount to persist state across page refreshes
+  // Track if we've already opened Plaid Link for this session
+  const [plaidLinkOpened, setPlaidLinkOpened] = useState(false);
+
+  // Track if Plaid is connected (updated after successful link)
+  const [plaidConnected, setPlaidConnected] = useState(false);
+
+  // Check connection status on mount to persist state across page refreshes
   useEffect(() => {
-    async function checkRobinhoodStatus() {
+    async function checkConnectionStatus() {
       try {
-        const response = await fetch("/api/robinhood");
-        const status = await response.json();
-        if (status.connected) {
+        // Check Robinhood
+        const rhResponse = await fetch("/api/robinhood");
+        const rhStatus = await rhResponse.json();
+        if (rhStatus.connected) {
           setRobinhoodConnected(true);
+        }
+
+        // Check Plaid
+        const plaidResponse = await fetch("/api/plaid");
+        const plaidStatus = await plaidResponse.json();
+        if (plaidStatus.connected) {
+          setPlaidConnected(true);
         }
       } catch {
         // Silently fail - user can reconnect if needed
       }
     }
 
-    checkRobinhoodStatus();
+    checkConnectionStatus();
   }, []);
 
   // Watch for Robinhood connect tool responses that should trigger the login popup
   useEffect(() => {
-    if (robinhoodLoginOpened) return; // Don't re-open if already opened
+    if (robinhoodLoginOpened) {
+      return; // Don't re-open if already opened
+    }
 
     for (const message of messages) {
       if (message.role === "assistant") {
@@ -248,6 +266,50 @@ export function Chat({
     }
   }, [messages, robinhoodLoginOpened]);
 
+  // Watch for Plaid connect tool responses that should trigger Plaid Link
+  useEffect(() => {
+    if (plaidLinkOpened) {
+      return; // Don't re-open if already opened
+    }
+
+    for (const message of messages) {
+      if (message.role === "assistant") {
+        for (const part of message.parts || []) {
+          // Check for plaidConnect tool (cast to any for dynamic tool types)
+          const toolPart = part as {
+            type?: string;
+            state?: string;
+            output?: unknown;
+            approval?: { approved?: boolean };
+          };
+          if (toolPart.type === "tool-plaidConnect") {
+            const state = toolPart.state;
+
+            // Open Plaid Link when output is available with the open action
+            if (state === "output-available" && toolPart.output) {
+              const output = toolPart.output as { action?: string };
+              if (output?.action === "open_plaid_link") {
+                setShowPlaidLink(true);
+                setPlaidLinkOpened(true);
+                return;
+              }
+            }
+
+            // Also open when approval was just responded (user clicked Allow)
+            if (
+              state === "approval-responded" &&
+              toolPart.approval?.approved === true
+            ) {
+              setShowPlaidLink(true);
+              setPlaidLinkOpened(true);
+              return;
+            }
+          }
+        }
+      }
+    }
+  }, [messages, plaidLinkOpened]);
+
   return (
     <>
       <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
@@ -279,7 +341,9 @@ export function Chat({
               input={input}
               messages={messages}
               onModelChange={setCurrentModelId}
+              onOpenPlaidLink={() => setShowPlaidLink(true)}
               onOpenRobinhoodLogin={() => setShowRobinhoodLogin(true)}
+              plaidConnected={plaidConnected}
               robinhoodConnected={robinhoodConnected}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
@@ -354,6 +418,18 @@ export function Chat({
           });
         }}
         open={showRobinhoodLogin}
+      />
+
+      <PlaidLinkDialog
+        onOpenChange={setShowPlaidLink}
+        onSuccess={() => {
+          setPlaidConnected(true);
+          toast({
+            type: "success",
+            description: "Successfully connected your brokerage!",
+          });
+        }}
+        open={showPlaidLink}
       />
     </>
   );

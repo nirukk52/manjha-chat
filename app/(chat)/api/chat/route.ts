@@ -15,6 +15,12 @@ import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
+import {
+  plaidConnect,
+  plaidGetHoldings,
+  plaidGetPortfolio,
+  plaidGetTransactions,
+} from "@/lib/ai/tools/plaid";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import {
   robinhoodConnect,
@@ -169,6 +175,10 @@ export async function POST(request: Request) {
                 "robinhoodGetCryptoHoldings",
                 "robinhoodGetOptionsPositions",
                 "robinhoodGetTodayOptionsTrades",
+                "plaidConnect",
+                "plaidGetPortfolio",
+                "plaidGetHoldings",
+                "plaidGetTransactions",
               ],
           providerOptions: isReasoningModel
             ? {
@@ -194,6 +204,10 @@ export async function POST(request: Request) {
             robinhoodGetTodayOptionsTrades: robinhoodGetTodayOptionsTrades({
               session,
             }),
+            plaidConnect: plaidConnect({ session }),
+            plaidGetPortfolio: plaidGetPortfolio({ session }),
+            plaidGetHoldings: plaidGetHoldings({ session }),
+            plaidGetTransactions: plaidGetTransactions({ session }),
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,

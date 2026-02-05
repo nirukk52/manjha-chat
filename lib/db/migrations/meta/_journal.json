@@ -71,6 +71,13 @@
       "when": 1770089299592,
       "tag": "0009_silly_morlun",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1770149094177,
+      "tag": "0010_strange_power_pack",
+      "breakpoints": true
     }
   ]
 }

@@ -71,6 +71,8 @@ function PureMultimodalInput({
   onModelChange,
   robinhoodConnected,
   onOpenRobinhoodLogin,
+  plaidConnected,
+  onOpenPlaidLink,
 }: {
   chatId: string;
   input: string;
@@ -88,6 +90,8 @@ function PureMultimodalInput({
   onModelChange?: (modelId: string) => void;
   robinhoodConnected?: boolean;
   onOpenRobinhoodLogin?: () => void;
+  plaidConnected?: boolean;
+  onOpenPlaidLink?: () => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -307,6 +311,8 @@ function PureMultimodalInput({
         uploadQueue.length === 0 && (
           <SuggestedActions
             chatId={chatId}
+            onOpenPlaidLink={onOpenPlaidLink}
+            plaidConnected={plaidConnected}
             selectedVisibilityType={selectedVisibilityType}
             sendMessage={sendMessage}
           />
@@ -399,7 +405,9 @@ function PureMultimodalInput({
                 window.history.pushState({}, "", `/chat/${chatId}`);
                 sendMessage({
                   role: "user",
-                  parts: [{ type: "text", text: "Show my Robinhood portfolio" }],
+                  parts: [
+                    { type: "text", text: "Show my Robinhood portfolio" },
+                  ],
                 });
               }}
               refreshTrigger={robinhoodConnected}

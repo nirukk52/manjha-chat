@@ -504,7 +504,13 @@ export interface RobinhoodOptionOrder {
   quantity: string;
   pending_quantity: string;
   canceled_quantity: string;
-  state: "filled" | "confirmed" | "cancelled" | "pending" | "queued" | "rejected";
+  state:
+    | "filled"
+    | "confirmed"
+    | "cancelled"
+    | "pending"
+    | "queued"
+    | "rejected";
   type: "limit" | "market";
   time_in_force: "gfd" | "gtc" | "ioc" | "opg";
   trigger: "immediate" | "stop";
